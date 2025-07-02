@@ -101,8 +101,13 @@ function (attn::Attention)(x_query::AbstractArray{T}, x_key::AbstractArray{T}, s
 
     n_rep = attn.n_heads ÷ attn.n_kv_heads # for multi-query attention
     xq_for_attn = rearrange(xq, (:head_dim, :len, :heads, ..) --> (:head_dim, :len, (:heads, ..)))
-    xk_for_attn = repeat(xk, (:head_dim, :len, ..) --> (:head_dim, :len, (:n_rep, ..)); n_rep)
-    xv_for_attn = repeat(xv, (:head_dim, :len, ..) --> (:head_dim, :len, (:n_rep, ..)); n_rep)
+    xk_for_attn, xv_for_attn = if isone(n_rep)
+        rearrange(xk, (:head_dim, :len, ..) --> (:head_dim, :len, (..,))),
+        rearrange(xv, (:head_dim, :len, ..) --> (:head_dim, :len, (..,)))
+    else
+        repeat(xk, (:head_dim, :len, ..) --> (:head_dim, :len, (:n_rep, ..)); n_rep),
+        repeat(xv, (:head_dim, :len, ..) --> (:head_dim, :len, (:n_rep, ..)); n_rep)
+    end
 
     output = sdpa(xq_for_attn, xk_for_attn, xv_for_attn, attn.head_dim, mask)
     output = rearrange(output, (:head_dim, :len, (:heads, :batch)) --> ((:head_dim, :heads), :len, :batch); heads=attn.n_heads)
