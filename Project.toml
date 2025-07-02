@@ -1,16 +1,20 @@
 name = "Onion"
 uuid = "fdebf6c2-71da-43a1-b539-c3bc3e09c5c6"
 authors = ["murrellb <murrellb@gmail.com> and contributors"]
-version = "0.1.1"
+version = "0.1.2"
 
 [deps]
 BatchedTransformations = "8ba27c4b-52b5-4b10-bc66-a4fda05aa11b"
+ConcreteStructs = "2569d6c7-a4a2-43d3-a901-331e8e4be471"
+Einops = "e3ce28c8-8bfb-4704-8add-e3e7f14b55c9"
 Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 NNlib = "872c559c-99b0-510c-b3b7-b6c96a88d5cd"
 
 [compat]
 BatchedTransformations = "0.5.7"
+ConcreteStructs = "0.2.3"
+Einops = "0.1.4"
 Flux = "0.16.3"
 LinearAlgebra = "1"
 NNlib = "0.9.27"

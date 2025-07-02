@@ -54,11 +54,11 @@ output = attn(x)  # Self-attention
 output = attn(query, key, value)  # Cross-attention
 ```
 """
-mutable struct Attention{DA, DB, DC, DD}
-    wq::DA
-    wk::DB
-    wv::DC
-    wo::DD
+@concrete struct Attention
+    wq
+    wk
+    wv
+    wo
     dim::Int
     n_heads::Int
     n_kv_heads::Int
@@ -81,59 +81,41 @@ function Attention(dim::Int, n_heads::Int, n_kv_heads=n_heads; qkv_bias=false)
     )
 end
 
-repeat_kv(x::AbstractArray, n_rep::Int) = isone(n_rep) ? x : repeat(x, 1, n_rep, 1, 1)
-
 # Backward compatibility method for self-attention with existing interface
 function (attn::Attention)(x::AbstractArray{T}, start_pos::Integer=1, rope=nothing, mask=0) where T
     return attn(x, x, start_pos, rope, mask)
 end
 
-function (attn::Attention)(x_query::AbstractArray{T}, x_key::AbstractArray{T}, start_pos::Integer=1, rope=nothing, mask=0) where T    
-    _, q_seqlen, q_batch = size(x_query)
-    _, k_seqlen, k_batch = size(x_key)
-    
+function (attn::Attention)(x_query::AbstractArray{T}, x_key::AbstractArray{T}, start_pos::Integer=1, rope=nothing, mask=0) where T
+    println("i'm the new version")
     xq = attn.wq(x_query)
     xk = attn.wk(x_key)
     xv = attn.wv(x_key)
-    
-    xq = reshape(xq, (attn.head_dim, attn.n_heads, q_seqlen, q_batch))
-    xk = reshape(xk, (attn.head_dim, attn.n_kv_heads, k_seqlen, k_batch))
-    xv = reshape(xv, (attn.head_dim, attn.n_kv_heads, k_seqlen, k_batch))
-    
-    xq = permutedims(xq, (1,3,2,4))
-    xk = permutedims(xk, (1,3,2,4))
-    xv = permutedims(xv, (1,3,2,4))
-    
+
+    xq = rearrange(xq, ((:head_dim, :heads), :len, ..) --> (:head_dim, :len, :heads, ..); attn.head_dim)
+    xk = rearrange(xk, ((:head_dim, :heads), :len, ..) --> (:head_dim, :len, :heads, ..); attn.head_dim)
+    xv = rearrange(xv, ((:head_dim, :heads), :len, ..) --> (:head_dim, :len, :heads, ..); attn.head_dim)
+
     if rope isa RoPE
         xq, xk = rope(xq), rope(xk)
     end
-    
-    # Update if cache is configured with seq_length > 0
-    #xk, xv = update!(attn.cache, start_pos, xk, xv)
-    
-    # Repeat keys and values for multi-query attention if needed
-    xk = repeat_kv(xk, attn.n_heads ÷ attn.n_kv_heads)
-    xv = repeat_kv(xv, attn.n_heads ÷ attn.n_kv_heads)
-    
-    xq_for_attn = reshape(xq, attn.head_dim, :, attn.n_heads * q_batch)
-    xk_for_attn = reshape(xk, attn.head_dim, :, attn.n_heads * k_batch)
-    xv_for_attn = reshape(xv, attn.head_dim, :, attn.n_heads * k_batch)
-    
+
+    n_rep = attn.n_heads ÷ attn.n_kv_heads # for multi-query attention
+    xq_for_attn = rearrange(xq, (:head_dim, :len, :heads, ..) --> (:head_dim, :len, (:heads, ..)))
+    xk_for_attn = repeat(xk, (:head_dim, :len, ..) --> (:head_dim, :len, (:n_rep, ..)); n_rep)
+    xv_for_attn = repeat(xv, (:head_dim, :len, ..) --> (:head_dim, :len, (:n_rep, ..)); n_rep)
+
     output = sdpa(xq_for_attn, xk_for_attn, xv_for_attn, attn.head_dim, mask)
-    
-    e_output = reshape(output, (attn.head_dim, q_seqlen, attn.n_heads, q_batch))
-    p_output = permutedims(e_output, (1,3,2,4)) 
-    r_output = reshape(p_output, (attn.n_heads * attn.head_dim, q_seqlen, q_batch))
-    
-    proj = attn.wo(r_output)
-    return proj
+    output = rearrange(output, (:head_dim, :len, (:heads, ..)) --> ((:head_dim, :heads), :len, ..); heads=attn.n_heads)
+
+    return attn.wo(output)
 end
 
-struct TransformerBlock{A,F,AN,FN}
-    attention::A
-    feed_forward::F
-    attention_norm::AN
-    ffn_norm::FN
+@concrete struct TransformerBlock
+    attention
+    feed_forward
+    attention_norm
+    ffn_norm
 end
 
 """
@@ -141,7 +123,7 @@ end
     TransformerBlock{Attention,FeedForward,AttentionNorm,FeedForwardNorm}
 
 Transformer block for GQAttention (as in Llama3). No KV caching (see Jjama3.jl for KV caching).
-    
+
 ```julia
 dim = 64
 n_heads = 8
@@ -183,11 +165,11 @@ Flux.@layer TransformerBlock
 
 
 
-struct AdaTransformerBlock{A,F,AN,FN}
-    attention::A
-    feed_forward::F
-    attention_norm::AN
-    ffn_norm::FN
+@concrete struct AdaTransformerBlock
+    attention
+    feed_forward
+    attention_norm
+    ffn_norm
 end
 
 function AdaTransformerBlock(
@@ -212,10 +194,9 @@ Flux.@layer AdaTransformerBlock
 
 
 
-
 function causal_mask(h::AbstractArray{T}) where T<:AbstractFloat
     Flux.ChainRulesCore.ignore_derivatives() do
-        dim, seqlen, batch = size(h)
+        _, seqlen = size(h)
         mask = similar(h, seqlen, seqlen)
         mask .= T(-Inf)
         mask = tril(mask, -1) #This is swapped because we're using the slightly more efficient dim setup
@@ -223,21 +204,41 @@ function causal_mask(h::AbstractArray{T}) where T<:AbstractFloat
     end
 end
 
+"""
+    DART(transformer_block::TransformerBlock)
 
+"Doubly Auto-Regressive Transformer" (DART) is a convenience layer wrapping a
+transformer block that can be used to model auto-regressive data represented
+along more than one dimension.
 
-struct DART{A}
-    transformer_block::A
+!!! note
+    The mask acts on the "unrolled" sequence, 
+
+# Examples
+
+```julia
+julia> dart = DART(TransformerBlock(64, 8, 8));
+
+julia> x = randn(Float32, 64, 4, 20, 1);
+
+julia> dart(x) |> size
+(64, 4, 20, 1)
+
+julia> dart(x, mask=:causal) |> size
+
+l(randn(Float32, 64, 4, 20, 1), mask=causal_mask(randn(Float32, 64, 4, 20, 1))) |> size
+```
+"""
+@concrete struct DART
+    transformer
 end
-#Note: the mask acts on the "unrolled" sequence.
-function (dart::DART)(x; mask = causal_mask(reshape(x, size(x,1), :, size(x)[4:end]...)))
-    h = reshape(x, size(x,1), :, size(x)[4:end]...)
-    return reshape(dart.transformer_block(h, 1, nothing, mask), size(x))
+
+function (dart::DART)(x::AbstractArray; mask=:causal)
+    h = rearrange(x, (:d, :K, :L, ..) --> (:d, (:K, :L), ..))
+    mask = mask === :causal ? causal_mask(h) : mask
+    return reshape(dart.transformer(h, 1, nothing, mask), size(x))
 end
+
 Flux.@layer DART
+
 export DART
-
-
-#=
-l = DART(TransformerBlock(64, 8, 8));
-l(randn(Float32, 64, 4, 20, 1)) |> size
-=#

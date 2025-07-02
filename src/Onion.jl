@@ -1,6 +1,10 @@
 module Onion
 
-using Flux, LinearAlgebra, BatchedTransformations
+using Flux
+using LinearAlgebra
+using BatchedTransformations
+using ConcreteStructs
+using Einops
 
 include("shared.jl")
 include("AdaLN.jl")
