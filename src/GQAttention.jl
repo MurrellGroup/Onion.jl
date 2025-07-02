@@ -87,7 +87,6 @@ function (attn::Attention)(x::AbstractArray{T}, start_pos::Integer=1, rope=nothi
 end
 
 function (attn::Attention)(x_query::AbstractArray{T}, x_key::AbstractArray{T}, start_pos::Integer=1, rope=nothing, mask=0) where T
-    println("i'm the new version")
     xq = attn.wq(x_query)
     xk = attn.wk(x_key)
     xv = attn.wv(x_key)
@@ -106,7 +105,7 @@ function (attn::Attention)(x_query::AbstractArray{T}, x_key::AbstractArray{T}, s
     xv_for_attn = repeat(xv, (:head_dim, :len, ..) --> (:head_dim, :len, (:n_rep, ..)); n_rep)
 
     output = sdpa(xq_for_attn, xk_for_attn, xv_for_attn, attn.head_dim, mask)
-    output = rearrange(output, (:head_dim, :len, (:heads, ..)) --> ((:head_dim, :heads), :len, ..); heads=attn.n_heads)
+    output = rearrange(output, (:head_dim, :len, (:heads, :batch)) --> ((:head_dim, :heads), :len, :batch); heads=attn.n_heads)
 
     return attn.wo(output)
 end
