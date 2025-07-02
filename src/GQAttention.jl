@@ -99,12 +99,13 @@ function (attn::Attention)(x_query::AbstractArray{T}, x_key::AbstractArray{T}, s
         xq, xk = rope(xq), rope(xk)
     end
 
-    n_rep = attn.n_heads ÷ attn.n_kv_heads # for multi-query attention
     xq_for_attn = rearrange(xq, (:head_dim, :len, :heads, ..) --> (:head_dim, :len, (:heads, ..)))
-    xk_for_attn, xv_for_attn = if isone(n_rep)
+
+    xk_for_attn, xv_for_attn = if attn.n_heads == attn.n_kv_heads
         rearrange(xk, (:head_dim, :len, ..) --> (:head_dim, :len, (..,))),
         rearrange(xv, (:head_dim, :len, ..) --> (:head_dim, :len, (..,)))
     else
+        n_rep = attn.n_heads ÷ attn.n_kv_heads # for multi-query attention
         repeat(xk, (:head_dim, :len, ..) --> (:head_dim, :len, (:n_rep, ..)); n_rep),
         repeat(xv, (:head_dim, :len, ..) --> (:head_dim, :len, (:n_rep, ..)); n_rep)
     end
