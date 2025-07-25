@@ -58,4 +58,6 @@ export IPAblock
 export CrossFrameIPA
 export pair_encode
 
+include("naive.jl")
+
 end

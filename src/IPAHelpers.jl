@@ -9,6 +9,14 @@ function pair_encode(resinds, chainids)
     return vcat(reshape(decay_num_diffs, 1, size(decay_num_diffs)...), reshape(chain_diffs, 1, size(chain_diffs)...))
 end
 
+function pairwise_sqeuclidean(x,y)
+    A_sqnorms = sum(abs2, x, dims=2)
+    B_sqnorms = sum(abs2, y, dims=1)
+    AB_dots = batched_mul(x,y)
+    return A_sqnorms .- 2 .* AB_dots .+ B_sqnorms
+end
+#d = pairwise_sqeuclidean(permutedims(p, (2,1,3)), p)
+
 """
     Framemover(dim::Int; init_gain = 0.1f0)
 

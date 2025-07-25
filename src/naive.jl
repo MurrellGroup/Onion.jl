@@ -75,6 +75,48 @@ function (block::NaiveTransformerBlock)(x, positions; mask=0)
     out = h + block.feed_forward(block.ffn_norm(h))
     return out
 end
+
+
+
+
+
+
+
+
+
+
+@concrete struct AdaNaiveTransformerBlock
+    attention
+    feed_forward
+    attention_norm
+    ffn_norm
+    rope
+end
+function AdaNaiveTransformerBlock(dim::Int, n_heads::Int, d_coords::Int, n_kv_heads::Int = n_heads, ff_hidden_dim = 4 * dim, cond_dim = dim; qkv_bias=false, rope_theta=10000f0)
+    @assert d_coords == 3 "d_coords must be 3 for NaiveRoPE"
+    head_dim = dim ÷ n_heads
+    @assert head_dim % 6 == 0 "Head dimension must be divisible by 6 for NaiveRoPE"
+    AdaNaiveTransformerBlock(
+        Attention(dim, n_heads, n_kv_heads; qkv_bias=qkv_bias),
+        StarGLU(dim, ff_hidden_dim),
+        AdaLN(dim, cond_dim),
+        AdaLN(dim, cond_dim),
+        NaiveRoPE(theta=rope_theta)
+    )
+end
+function (block::AdaNaiveTransformerBlock)(x, positions, cond; mask=0)
+    h = x + block.attention(block.attention_norm(x, cond), positions, block.rope; mask=mask)
+    out = h + block.feed_forward(block.ffn_norm(h, cond))
+    return out
+end
+
+
+
+
+
+
+
+
  
 Flux.@layer NaiveTransformerBlock
  
