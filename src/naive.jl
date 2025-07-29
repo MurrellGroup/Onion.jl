@@ -1,3 +1,7 @@
+#Move this to shared.jl:
+as_dense_on_device(x, array::DenseArray, T=eltype(x)) = similar(array, T, size(x)) .= x
+@non_differentiable as_dense_on_device(::Any...)
+
 struct NaiveRoPE
     theta::Float32
 end
@@ -15,29 +19,20 @@ function (rope::NaiveRoPE)(x, positions)
     # positions: (d_coords, seq_len, batch)
     D, S, H, B = size(x)
     d_coords, S_pos, B_pos = size(positions)
-    
     @assert D % 6 == 0 "Head dimension must be divisible by 6, but got $D"
     @assert d_coords == 3 "d_coords must be 3 for NaiveRoPE"
     @assert S == S_pos && B == B_pos "Sequence length or batch size mismatch between x and positions"
- 
     num_pairs = D ÷ 2
     T = eltype(x)
-    freqs = 1.0f0 ./ (rope.theta .^ (T.(0:2:D-1)[1:num_pairs] ./ D)) # shape (num_pairs,)
-    
-    pos_indices = Int.((0:num_pairs-1) .% 3 .+ 1)
-    selected_pos = positions[pos_indices, :, :]
- 
+    freqs = 1.0f0 ./ (rope.theta .^ (as_dense_on_device(0:2:D-1, x, Float32)[1:num_pairs] ./ D))
+    selected_pos = repeat(positions,(:d, ..)-->((:d, :k), ..),k=num_pairs÷3)
     angles = reshape(freqs, num_pairs, 1, 1) .* selected_pos
-    
     cos_vals = cos.(angles)
     sin_vals = sin.(angles)
- 
     cos_vals = reshape(cos_vals, num_pairs, S, 1, B)
     sin_vals = reshape(sin_vals, num_pairs, S, 1, B)
- 
     x1 = x[1:D÷2, :, :, :]
     x2 = x[D÷2+1:end, :, :, :]
-    
     rotated_x = vcat(
         x1 .* cos_vals .- x2 .* sin_vals,
         x2 .* cos_vals .+ x1 .* sin_vals
