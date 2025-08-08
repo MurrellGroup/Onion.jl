@@ -60,8 +60,6 @@ export pair_encode
 
 include("MultidimRoPE.jl")
 export MultidimRoPE
-export MultidimRoPETransformerBlock
-export AdaMultidimRoPETransformerBlock
 
 include("STRING.jl")
 export STRINGRoPE

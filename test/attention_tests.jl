@@ -131,16 +131,16 @@ end
         x = randn(Float32, dim, seq_len, batch_size)
         pos = randn(Float32, d_coords, seq_len, batch_size)
         cond = randn(Float32, dim, batch_size)
-        block = AdaSTRINGTransformerBlock(dim, n_heads, d_coords)
+        block = AdaSTRINGTransformerBlock(dim, dim, n_heads, d_coords)
         out = block(x,pos,cond)
         diff = repeat(randn(Float32, d_coords, 1, batch_size), 1, seq_len, 1)
         pos2 = pos + diff
         out2 = block(x,pos2,cond)
         @test isapprox(out, out2)
     end
-    @testset "STRINGRoPEOrthotogonal P" begin
+    @testset "STRINGRoPE Orthotogonal P" begin
         dim, seq_len, batch_size, n_heads, d_coords = 384, 6, 2, 8, 3 
-        block = AdaSTRINGTransformerBlock(dim, n_heads, d_coords) 
+        block = AdaSTRINGTransformerBlock(dim, dim, n_heads, d_coords) 
         A_param = block.rope.A_param
         S_antisym = (A_param - batched_transpose(A_param)) / 2
         S = S_antisym[:, :, 1]
