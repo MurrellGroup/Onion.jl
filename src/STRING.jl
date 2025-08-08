@@ -2,116 +2,103 @@
 # "Learning the RoPEs: Better 2D and 3D Position Encodings with STRING".
 # Link to paper: https://arxiv.org/abs/2502.02562
 
-@info "Using local STRING.jl (dev env)"
+"""
+    STRINGRoPE(head_dim::Int, n_heads::Int, d_coords::Int; init_scale=0.001f0, theta=10000f0)
 
-@concrete struct STRING
-    dim
-    d_coords
-    thetas
-    orthogonal_parameter
-end
+Multidimensional, learnable Rotary Position Embedding (RoPE) from Schneck et al. (2025),
+"Learning the RoPEs: Better 2D and 3D Position Encodings with STRING".
 
-Flux.@layer STRING
+# Example
+```julia
+head_dim = 64
+n_heads = 8
+d_coords = 3
+rope = STRINGRoPE(head_dim, n_heads, d_coords)
 
-# dim is the dimensionality of the model (head), d_coords is the dimensionality of the position vector (often R^3)
-function STRING(dim::Int, d_coords::Int)
-    @assert iseven(dim) "Dimensionality (dim) must be even for STRING, dim=$dim was given."
-
-    return STRING(
-        dim,                                # Dimensionality of head
-        d_coords,                           # Dimensionality of token position space
-        randn(Float32, dim ÷ 2),           # Thetas
-        randn(Float32, dim, dim),          # Orthogonal parameter
-    )
-end
-
-# Batch‑aware variant  –  accepts x with shape (seq_len, batch)
-# Returns rotation matrices of shape (2, 2, k, seq_len, batch)
-function ContinuousRoPE(x::AbstractArray, rope::STRING)
-    # Phase: (k, S, B)  ←  broadcast multiply
-    phase = reshape(rope.thetas, :, 1, 1) .* reshape(x, 1, size(x,1), size(x,2))
-
-    c = rearrange(cos.(phase), (..) --> (1, 1, ..))                             # (k,S,B)
-    s = rearrange(sin.(phase), (..) --> (1, 1, ..))
-
-    # Assemble rotation blocks (2,2,k,S,B) without loops
-    rot = [c -s
-           s  c]
-    return rot
-end
-
-# Expects `position` with shape (d_coords, seq_len, batch)
-# Returns a tensor with shape (dim, dim, seq_len, batch)
-function (rope::STRING)(position::AbstractArray)
-    @assert ndims(position) == 3 "Position must have shape (d_coords, seq_len, batch)."
-    @assert size(position,1) == rope.d_coords "Coordinate dimension mismatch."
-
-    # Sum over spatial coordinates → (seq_len, batch)
-    coordinate_sum = dropdims(sum(position; dims=1), dims=1)
-
-    # Rotation blocks: (2, 2, k, seq_len, batch)
-    MultiRope = ContinuousRoPE(coordinate_sum, rope)
-
-    # Orthogonal matrix from eq. 9
-    A  = rope.orthogonal_parameter
-    P  = exp(A - A')
-    PT = P'                                          # (dim, dim)
-
-    k   = size(MultiRope,3)                          # number of 2×2 blocks
-    S   = size(MultiRope,4)                          # seq_len
-    B   = size(MultiRope,5)                          # batch
-    γ   = size(PT,2)                                 # dim
-
-    # Align β‑index (second dim) for contraction
-    D = reshape(MultiRope, 2, 2, k, S, B, 1)         # α β k S B 1
-    Q = reshape(PT,        1, 2, k, 1, 1, γ)         # 1 β k 1 1 γ
-
-    # Contract over β without explicit loops
-    out = dropdims(sum(D .* Q; dims=2), dims=2)      # (2, k, S, B, γ)
-
-    # Merge α & k → dim
-    out = reshape(out, rope.dim, S, B, γ)            # (dim, S, B, γ)
-
-    # This section should be removable, see remark under eq. 9 in STRING paper 
-    # (this would however break translational invariance tests)
-    
-    # Left‑multiply by P for each (S,B) slice
-    out2d = reshape(out, rope.dim, :)                # flatten trailing dims
-    final = P * out2d                                # (dim, S*B*γ)
-    final = reshape(final, rope.dim, S, B, γ)        # (dim, S, B, dim)
-    final = permutedims(final, (1, 4, 2, 3))         # (dim, dim, S, B)
-
-    return final
-end
-
-struct MultiHeadSTRING
+x = rand(Float32, head_dim, 16, n_heads, 2)      # (head_dim, seq_len, n_heads, batch)
+positions = rand(Float32, d_coords, 16, 2)       # (d_coords, seq_len, batch)
+x_rot = rope(x, positions)
+````
+!!! note
+    As this needs to be learnable it should preferably be used with the STRINGTransformerBlock/AdaSTRINGTransformerBlock
+"""
+@concrete struct STRINGRoPE{AT<:AbstractArray, AA<:AbstractArray}
     head_dim::Int
     n_heads::Int
-    string_heads::Vector{STRING}
-    premade_indexvecs::Vector{Int}
+    d_coords::Int
+    thetas::AT
+    A_param::AA
 end
 
-Flux.@layer MultiHeadSTRING trainable=(string_heads)
+Flux.@layer STRINGRoPE trainable=(thetas, A_param)
 
-function MultiHeadSTRING(head_dim::Int, n_heads::Int, d_coords::Int)
-    return MultiHeadSTRING(
-        head_dim,
-        n_heads,
-        [STRING(head_dim, d_coords) for _ in 1:n_heads],
-        [i for i in 1:n_heads]
-    )    
+function STRINGRoPE(head_dim::Int, n_heads::Int, d_coords::Int; init_scale=0.001f0, theta=10000f0)
+    @assert iseven(head_dim) "Head dimension must be even."
+    num_pairs = head_dim ÷ 2
+    freqs = 1.0f0 ./ (theta .^ (Float32.(0:2:head_dim-1)[1:num_pairs] ./ head_dim))
+    thetas = repeat(reshape(freqs, :, 1, 1), 1, d_coords, n_heads)  
+    A_param = randn(Float32, head_dim, head_dim, n_heads)  * init_scale 
+    STRINGRoPE(head_dim, n_heads, d_coords, thetas, A_param)
 end
 
-function (layer::MultiHeadSTRING)(position)
-    # position shape: (d_coords, seq_len, batch)
-    # q/k shape: (head_dim, seq_len, heads, batch)
-
-    out_heads = [head(position) for head in layer.string_heads]
-    out = cat(out_heads...; dims=5)  # (dim, dim, seq_len, batch, heads)
-    out = rearrange(out, (:rows, :cols, :seq_len, :batch, :heads) --> (:rows, :cols, :seq_len, :heads, :batch))
-    return out
+function apply_paper_3d_rope_learnable(x::AbstractArray, positions::AbstractArray, thetas::AbstractArray)
+    """Apply RoPE to all coordinate dimensions"""
+    head_dim, seq_len, n_heads, batch = size(x)
+    @assert iseven(head_dim)
+    num_pairs = head_dim ÷ 2
+    d_coords = size(positions, 1)
+    x1 = x[1:num_pairs, :, :, :]
+    x2 = x[num_pairs+1:end, :, :, :]
+    angles = reshape(thetas, num_pairs, d_coords, 1, n_heads, 1) .* 
+             reshape(positions, 1, d_coords, seq_len, 1, batch)
+    cumulative_angles = sum(angles, dims=2)[:, 1, :, :, :]
+    cos_vals = cos.(cumulative_angles)
+    sin_vals = sin.(cumulative_angles)
+    rot1 = x1 .* cos_vals .- x2 .* sin_vals
+    rot2 = x2 .* cos_vals .+ x1 .* sin_vals
+    return vcat(rot1, rot2)
 end
 
+function (rope::STRINGRoPE)(x::AbstractArray, positions::AbstractArray)
+    S = (rope.A_param .- batched_transpose(rope.A_param)) ./ 2
+    x_4d = glut(x, 4, 3)
+    pos_3d = glut(positions, 3, 2)
+    head_dim, seq_len, n_heads, total_batch = size(x_4d)
+    x_flat = reshape(x_4d, head_dim, seq_len * total_batch, n_heads)
+    S_vec = eachslice(S; dims = 3)
+    X_vec = eachslice(x_flat; dims = 3)
+    solved = map((Sh,X) -> (I + Sh) \ X, S_vec, X_vec)
+    products = map((Sh,X̂) -> (I - Sh) * X̂, S_vec, solved)
+    x_transformed = cat(products...; dims = 3)
+    x_restored = reshape(x_transformed, size(x_4d))
+    rope_result = apply_paper_3d_rope_learnable(x_restored, pos_3d, rope.thetas)
+    return reshape(rope_result, size(x))
+end
+
+"""
+    STRINGTransformerBlock(
+        dim::Int, n_heads::Int, d_coords::Int,
+        n_kv_heads::Int = n_heads, ff_hidden_dim = 4 * dim;
+        norm_eps=1f-5, qkv_bias=false
+    )
+
+Transformer block that integrates STRING multidimensional, learnable Rotary Position Embedding
+(STRINGRoPE) from Schneck et al. (2025), "Learning the RoPEs: Better 2D and 3D Position Encodings with STRING".
+
+This block applies:
+1. Pre-normalized multi-head attention with STRINGRoPE applied to queries and keys.
+2. A feed-forward network (`StarGLU`).
+3. RMSNorm for normalization.
+
+# Example
+```julia
+block = STRINGTransformerBlock(512, 8, 3)
+
+x = rand(Float32, 512, 16, 2)                # (dim, seq_len, batch)
+positions = rand(Float32, 3, 16, 2)          # (d_coords, seq_len, batch)
+y = block(x, positions)
+````
+"""
 @concrete struct STRINGTransformerBlock
     attention
     feed_forward
@@ -119,30 +106,64 @@ end
     ffn_norm
     rope
 end
-
 function STRINGTransformerBlock(
     dim::Int, n_heads::Int, d_coords::Int, n_kv_heads::Int = n_heads, ff_hidden_dim = 4 * dim;
     norm_eps=1f-5, qkv_bias=false, 
 )
-
     head_dim = Int(dim / n_heads)
     STRINGTransformerBlock(
         Attention(dim, n_heads, n_kv_heads; qkv_bias),
         StarGLU(dim, ff_hidden_dim),
         RMSNorm(dim, eps=norm_eps),
         RMSNorm(dim, eps=norm_eps),
-        MultiHeadSTRING(head_dim, n_heads, d_coords)
+        STRINGRoPE(head_dim, n_heads, d_coords)
     )
 end
-
-function (block::STRINGTransformerBlock)(x; start_pos=1, mask=0, positions=nothing)
-    h = x + block.attention(block.attention_norm(x), start_pos, block.rope, mask; positions=positions)
+function (block::STRINGTransformerBlock)(x, positions; mask=0)
+    h = x + block.attention(block.attention_norm(x), positions, block.rope; mask=mask)
     out = h + block.feed_forward(block.ffn_norm(h))
     return out
 end
-
-# compat
-(block::STRINGTransformerBlock)(x, start_pos, rope=identity, mask=0) =
-    block(x; start_pos, rope, mask)
-
 Flux.@layer STRINGTransformerBlock
+
+@concrete struct AdaSTRINGTransformerBlock
+    attention
+    feed_forward
+    attention_norm
+    ffn_norm
+    rope
+end
+function AdaSTRINGTransformerBlock(dim::Int, n_heads::Int, d_coords::Int, n_kv_heads::Int = n_heads, ff_hidden_dim = 4 * dim, cond_dim = dim; qkv_bias=false)
+    head_dim = Int(dim / n_heads)
+    AdaSTRINGTransformerBlock(
+        Attention(dim, n_heads, n_kv_heads; qkv_bias),
+        StarGLU(dim, ff_hidden_dim),
+        AdaLN(dim, cond_dim),
+        AdaLN(dim, cond_dim),
+        STRINGRoPE(head_dim, n_heads, d_coords)
+    )
+end
+function (block::AdaSTRINGTransformerBlock)(x, positions, cond; mask=0)
+    h = x + block.attention(block.attention_norm(x, cond), positions, block.rope; mask=mask)
+    out = h + block.feed_forward(block.ffn_norm(h, cond))
+    return out
+end
+Flux.@layer AdaSTRINGTransformerBlock
+
+function (attn::Attention)(x::AbstractArray, positions::AbstractArray, rope::STRINGRoPE; mask=0)
+    return attn(x, x, positions, rope; mask=mask)
+end
+function (attn::Attention)(xq::AbstractArray, xk::AbstractArray, positions::AbstractArray, rope::STRINGRoPE; mask=0)
+    q = rearrange(attn.wq(xq), ((:head_dim, :heads), :len, ..) --> (:head_dim, :len, :heads, ..); attn.head_dim)
+    k = rearrange(attn.wk(xk), ((:head_dim, :heads), :len, ..) --> (:head_dim, :len, :heads, ..); attn.head_dim)
+    v = rearrange(attn.wv(xk), ((:head_dim, :heads), :len, ..) --> (:head_dim, :len, :heads, ..); attn.head_dim)
+    q_rotated = rope(q, positions)
+    k_rotated = rope(k, positions)
+    q_per_kv = attn.n_heads ÷ attn.n_kv_heads
+    q_heads = rearrange(q_rotated, (:head_dim, :len, ..) --> (:head_dim, :len, (..,)))
+    k_heads = repeat(k_rotated, (:head_dim, :len, ..) --> (:head_dim, :len, (:q_per_kv, ..)); q_per_kv)
+    v_heads = repeat(v, (:head_dim, :len, ..) --> (:head_dim, :len, (:q_per_kv, ..)); q_per_kv)
+    output = sdpa(q_heads, k_heads, v_heads, mask)
+    output = rearrange(output, (:head_dim, :len, (:heads, :batch)) --> ((:head_dim, :heads), :len, :batch); heads=attn.n_heads)
+    return attn.wo(output)
+end

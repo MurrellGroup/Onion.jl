@@ -1,6 +1,6 @@
 using Test
 using Onion
-using Flux
+using Flux, LinearAlgebra
 
 @testset "Attention Tests" begin
     @testset "Self-Attention" begin
@@ -122,5 +122,35 @@ using Flux
         @test isapprox(output[:, 3, 3], mod_output[:, 3, 3])
         @test isapprox(output[:, 10, 4], mod_output[:, 10, 4])
         @test !isapprox(output, mod_output)
+    end
+end
+
+@testset "RoPE Tests" begin
+    @testset "STRINGRoPE translational invariance" begin
+        dim, seq_len, batch_size, n_heads, d_coords = 384, 6, 2, 8, 3
+        x = randn(Float32, dim, seq_len, batch_size)
+        pos = randn(Float32, d_coords, seq_len, batch_size)
+        cond = randn(Float32, dim, batch_size)
+        block = AdaSTRINGTransformerBlock(dim, n_heads, d_coords)
+        out = block(x,pos,cond)
+        diff = repeat(randn(Float32, d_coords, 1, batch_size), 1, seq_len, 1)
+        pos2 = pos + diff
+        out2 = block(x,pos2,cond)
+        @test isapprox(out, out2)
+    end
+    @testset "STRINGRoPEOrthotogonal P" begin
+        dim, seq_len, batch_size, n_heads, d_coords = 384, 6, 2, 8, 3 
+        block = AdaSTRINGTransformerBlock(dim, n_heads, d_coords) 
+        A_param = block.rope.A_param
+        S_antisym = (A_param - batched_transpose(A_param)) / 2
+        S = S_antisym[:, :, 1]
+        P = (I - S) * inv(I + S)
+        P_alt = (I + S) \ (I - S)
+        ortho_error_old = norm(P' * P - I)
+        ortho_error_new = norm(P_alt' * P_alt - I)
+        P_det = det(cpu(P))
+        P_det_alt = det(cpu(P_alt))
+        @test isapprox(P_det,1)
+        @test isapprox(P_det_alt,1)
     end
 end
