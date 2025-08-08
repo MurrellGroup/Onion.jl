@@ -41,7 +41,7 @@ function STRINGRoPE(head_dim::Int, n_heads::Int, d_coords::Int; init_scale=0.001
     STRINGRoPE(head_dim, n_heads, d_coords, thetas, A_param)
 end
 
-function apply_paper_3d_rope_learnable(x::AbstractArray, positions::AbstractArray, thetas::AbstractArray)
+function apply_string_rotation(x::AbstractArray, positions::AbstractArray, thetas::AbstractArray)
     """Apply RoPE to all coordinate dimensions"""
     head_dim, seq_len, n_heads, batch = size(x)
     @assert iseven(head_dim)
@@ -71,7 +71,7 @@ function (rope::STRINGRoPE)(x::AbstractArray, positions::AbstractArray)
     products = map((Sh,X̂) -> (I - Sh) * X̂, S_vec, solved)
     x_transformed = cat(products...; dims = 3)
     x_restored = reshape(x_transformed, size(x_4d))
-    rope_result = apply_paper_3d_rope_learnable(x_restored, pos_3d, rope.thetas)
+    rope_result = apply_string_rotation(x_restored, pos_3d, rope.thetas)
     return reshape(rope_result, size(x))
 end
 
@@ -133,7 +133,7 @@ Flux.@layer STRINGTransformerBlock
     ffn_norm
     rope
 end
-function AdaSTRINGTransformerBlock(dim::Int, n_heads::Int, d_coords::Int, n_kv_heads::Int = n_heads, ff_hidden_dim = 4 * dim, cond_dim = dim; qkv_bias=false)
+function AdaSTRINGTransformerBlock(dim::Int, cond_dim::Int, n_heads::Int, d_coords::Int, n_kv_heads::Int = n_heads, ff_hidden_dim = 4 * dim; qkv_bias=false)
     head_dim = Int(dim / n_heads)
     AdaSTRINGTransformerBlock(
         Attention(dim, n_heads, n_kv_heads; qkv_bias),

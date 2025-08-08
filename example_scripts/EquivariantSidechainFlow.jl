@@ -98,7 +98,8 @@ function SidechainerV1(dim, depth, shifter_depth, heads)
         dim, depth, shifter_depth,
         t_encoding = Chain(RandomFourierFeatures(1 => dim, 1f0), Dense(dim => dim)),
         atom_encoder = Embedding(83 => dim),
-        transformers = [Onion.AdaNaiveTransformerBlock(dim, heads, 3, rope_theta = 100f0) for _ in 1:depth],
+        transformers = [Onion.AdaSTRINGTransformerBlock(dim, dim, heads, 3) for _ in 1:depth],
+         # transformers = [Onion.AdaTransformerBlock(dim, dim, heads) for _ in 1:depth],
         shifters = [Dense(dim => 3, bias = false) for _ in 1:shifter_depth],
         pair_heads = [Dense(3 => heads) for _ in 1:depth],
     )
@@ -113,7 +114,8 @@ function (m::SidechainerV1)(t, Xt, C)
     for (i,tr) in enumerate(l.transformers)
         dpf = rearrange(l.pair_heads[i](pf), (:pd, :l1, :l2, :b) --> (:l1, :l2, (:pd, :b))) 
         x = tr(x, xyz, t_cond, mask = dpf)
-        #x = tr(x, t_cond, nothing, dpf)
+        # rope = MultidimRoPE()
+        # x = tr(x, xyz, t_cond; rope=rope, mask=dpf)
         if i > l.depth - l.shifter_depth
             xyz += l.shifters[i-(l.depth - l.shifter_depth)](x) .* (rearrange(Xt.cmask, (..) --> (1, ..))) .* (1.05f0 .- rearrange(t, (..) --> (1, 1, ..)))
             if i != l.depth
