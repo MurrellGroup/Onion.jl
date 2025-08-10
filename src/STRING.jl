@@ -79,7 +79,7 @@ end
     STRINGTransformerBlock(
         dim::Int, n_heads::Int, d_coords::Int,
         n_kv_heads::Int = n_heads, ff_hidden_dim = 4 * dim;
-        norm_eps=1f-5, qkv_bias=false
+        norm_eps=1f-5, qkv_bias=false, init_scale=0.001f0, theta=10000f0, 
     )
 
 Transformer block that integrates STRING multidimensional, learnable Rotary Position Embedding
@@ -108,7 +108,7 @@ y = block(x, positions)
 end
 function STRINGTransformerBlock(
     dim::Int, n_heads::Int, d_coords::Int, n_kv_heads::Int = n_heads, ff_hidden_dim = 4 * dim;
-    norm_eps=1f-5, qkv_bias=false, 
+    norm_eps=1f-5, qkv_bias=false, init_scale=0.001f0, theta=10000f0, 
 )
     head_dim = Int(dim / n_heads)
     STRINGTransformerBlock(
@@ -133,7 +133,8 @@ Flux.@layer STRINGTransformerBlock
     ffn_norm
     rope
 end
-function AdaSTRINGTransformerBlock(dim::Int, cond_dim::Int, n_heads::Int, d_coords::Int, n_kv_heads::Int = n_heads, ff_hidden_dim = 4 * dim; qkv_bias=false)
+function AdaSTRINGTransformerBlock(dim::Int, cond_dim::Int, n_heads::Int, d_coords::Int, n_kv_heads::Int = n_heads, ff_hidden_dim = 4 * dim; 
+                                    qkv_bias=false, init_scale=0.001f0, theta=10000f0)
     head_dim = Int(dim / n_heads)
     AdaSTRINGTransformerBlock(
         Attention(dim, n_heads, n_kv_heads; qkv_bias),

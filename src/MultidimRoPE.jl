@@ -1,6 +1,3 @@
-#Move this to shared.jl:
-as_dense_on_device(x, array::DenseArray, T=eltype(x)) = similar(array, T, size(x)) .= x
-@non_differentiable as_dense_on_device(::Any...)
 
 @concrete struct MultidimRoPE
     theta::Float32
@@ -20,8 +17,7 @@ specific coordinate dimension and rotated accordingly.
 
 # Example
 ```julia
-dim, n_heads, n_kv_heads = 64, 8, 4
-seqlen = 16
+dim, n_heads, n_kv_heads, seqlen = 64, 8, 4, 16
 t = TransformerBlock(dim, n_heads, n_kv_heads)
 h = randn(Float32, dim, seqlen, 1)
 mask = 0

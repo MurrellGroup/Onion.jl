@@ -15,3 +15,6 @@ function glut(t::AbstractArray, d::Int, pos::Int)
     d - ndt < 0 && error("Cannot expand array of size $(size(t)) to $d dimensions.")
     reshape(t, size(t)[1:pos]..., ntuple(Returns(1), (d - ndt))..., size(t)[(pos+1):end]...)
 end
+
+as_dense_on_device(x, array::DenseArray, T=eltype(x)) = similar(array, T, size(x)) .= x
+@non_differentiable as_dense_on_device(::Any...)
