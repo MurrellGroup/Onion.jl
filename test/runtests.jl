@@ -1,6 +1,7 @@
 using Onion
 using Test
 using Flux
+include("attention_tests.jl")
 
 @testset "Onion.jl" begin
     # Test UNet components
