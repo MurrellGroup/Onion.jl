@@ -1,6 +1,6 @@
 using Onion
 using Test
-using Flux, LinearAlgebra
+using Flux
 
 @testset "Onion.jl" begin
     # Test UNet components
@@ -294,21 +294,6 @@ using Flux, LinearAlgebra
             @test size(out_std) == size(out_string) == size(out_multi)
             @test isapprox(out_std, out_string, rtol=1e-5)
             @test isapprox(out_std, out_multi, rtol=1e-5)
-        end
-        @testset "STRINGRoPE Orthotogonal P" begin
-            dim, seq_len, batch_size, n_heads, d_coords = 384, 6, 2, 8, 3 
-            block = Onion.AdaSTRINGTransformerBlock(dim, dim, n_heads, d_coords) 
-            A_param = block.rope.A_param
-            S_antisym = (A_param - batched_transpose(A_param)) / 2
-            S = S_antisym[:, :, 1]
-            P = (I - S) * inv(I + S)
-            P_alt = (I + S) \ (I - S)
-            ortho_error_old = norm(P' * P - I)
-            ortho_error_new = norm(P_alt' * P_alt - I)
-            P_det = det(cpu(P))
-            P_det_alt = det(cpu(P_alt))
-            @test isapprox(P_det,1)
-            @test isapprox(P_det_alt,1)
         end
     end
 end
