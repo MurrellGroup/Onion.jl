@@ -1,11 +1,10 @@
-
-@concrete struct MultidimRoPE
+struct MultidimRoPE
     theta::Float32
 end
+
+MultidimRoPE(; theta=10000f0) = MultidimRoPE(theta)
+
 Flux.@layer MultidimRoPE trainable=()
-function MultidimRoPE(;theta=10000f0)
-    return MultidimRoPE(theta)
-end
 
 """
     MultidimRoPE(; theta=10000f0)
@@ -57,14 +56,14 @@ function (block::TransformerBlock)(x::AbstractArray, positions::AbstractArray; r
     out = h + block.feed_forward(block.ffn_norm(h))
     return out
 end
-(block::TransformerBlock)(x::AbstractArray, positions::AbstractArray, rope=identity, mask=0) = block(x, positions; rope, mask)
+(block::TransformerBlock)(x::AbstractArray, positions::AbstractArray, rope, mask=0) = block(x, positions; rope, mask)
 
 function (block::AdaTransformerBlock)(x::AbstractArray, positions::AbstractArray, cond; rope=identity, mask=0)
     h = x + block.attention(block.attention_norm(x, cond), positions, rope; mask)
     out = h + block.feed_forward(block.ffn_norm(h, cond))
     return out
 end
-(block::AdaTransformerBlock)(x::AbstractArray, positions::AbstractArray, cond, rope=identity, mask=0) = block(x, positions, cond; rope, mask)
+(block::AdaTransformerBlock)(x::AbstractArray, positions::AbstractArray, cond, rope, mask=0) = block(x, positions, cond; rope, mask)
 
 function (attn::Attention)(x::AbstractArray, positions::AbstractArray, rope::MultidimRoPE; mask=0)
     return attn(x, x, positions, rope; mask)

@@ -18,16 +18,16 @@ rope = STRINGRoPE(head_dim, n_heads, d_coords)
 x = rand(Float32, head_dim, 16, n_heads, 2)      # (head_dim, seq_len, n_heads, batch)
 positions = rand(Float32, d_coords, 16, 2)       # (d_coords, seq_len, batch)
 x_rot = rope(x, positions)
-````
+```
 !!! note
     As this needs to be learnable it should preferably be used with the STRINGTransformerBlock/AdaSTRINGTransformerBlock
 """
-@concrete struct STRINGRoPE{AT<:AbstractArray, AA<:AbstractArray}
+@concrete struct STRINGRoPE
     head_dim::Int
     n_heads::Int
     d_coords::Int
-    thetas::AT
-    A_param::AA
+    thetas
+    A_param
 end
 
 Flux.@layer STRINGRoPE trainable=(thetas, A_param)
@@ -97,7 +97,7 @@ block = STRINGTransformerBlock(512, 8, 3)
 x = rand(Float32, 512, 16, 2)                # (dim, seq_len, batch)
 positions = rand(Float32, 3, 16, 2)          # (d_coords, seq_len, batch)
 y = block(x, positions)
-````
+```
 """
 @concrete struct STRINGTransformerBlock
     attention
