@@ -12,7 +12,4 @@ Flux.@layer RMSNorm
 
 RMSNorm(dim::Int; eps::T=1f-5) where T = RMSNorm(ones(T, dim), eps)
 
-function (norm::RMSNorm)(x)
-    rms = sqrt.(sum(abs2, x, dims=1) / size(x, 1) .+ norm.eps)
-    return x .* (norm.weight ./ rms)
-end
+(norm::RMSNorm)(x) = Ops.rms_norm(x, norm.weight; norm.eps)

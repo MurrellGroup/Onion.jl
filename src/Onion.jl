@@ -22,6 +22,9 @@ export DyT
 include("StarGLU.jl")
 export StarGLU
 
+include("Ops.jl")
+using .Ops: naive_attention, flash_attention
+
 include("GQAttention.jl")
 export Attention
 export TransformerBlock

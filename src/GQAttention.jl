@@ -88,7 +88,7 @@ end
 (attn::Attention)(xq::AbstractArray, xk::AbstractArray, start_pos, rope=identity, mask=0) =
     attn(xq, xk; start_pos, rope, mask)
 
-function (attn::Attention)(xq::AbstractArray, xk::AbstractArray=xq; start_pos=1, rope=identity, mask=0)
+function (attn::Attention)(xq::AbstractArray, xk::AbstractArray=xq; start_pos=1, rope=identity, mask=false, sdpa=naive_attention)
     q = rearrange(attn.wq(xq), ((:head_dim, :heads), :len, ..) --> (:head_dim, :len, :heads, ..); attn.head_dim)
     k = rearrange(attn.wk(xk), ((:head_dim, :heads), :len, ..) --> (:head_dim, :len, :heads, ..); attn.head_dim)
     v = rearrange(attn.wv(xk), ((:head_dim, :heads), :len, ..) --> (:head_dim, :len, :heads, ..); attn.head_dim)
@@ -97,13 +97,12 @@ function (attn::Attention)(xq::AbstractArray, xk::AbstractArray=xq; start_pos=1,
     isnothing(rope) && (rope = identity)
     q, k = rope(q), rope(k)
 
-    q_per_kv = attn.n_heads ÷ attn.n_kv_heads # for multi-query attention    
-    q_heads = rearrange(q, (:head_dim, :len, ..) --> (:head_dim, :len, (..,)))
-    k_heads = repeat(k, (:head_dim, :len, ..) --> (:head_dim, :len, (:q_per_kv, ..)); q_per_kv)
-    v_heads = repeat(v, (:head_dim, :len, ..) --> (:head_dim, :len, (:q_per_kv, ..)); q_per_kv)
+    q_per_kv = attn.n_heads ÷ attn.n_kv_heads # for multi-query attention
+    k = repeat(k, (:head_dim, :len, :heads, ..) --> (:head_dim, :len, (:q_per_kv, :heads), ..); q_per_kv)
+    v = repeat(v, (:head_dim, :len, :heads, ..) --> (:head_dim, :len, (:q_per_kv, :heads), ..); q_per_kv)
 
-    output = sdpa(q_heads, k_heads, v_heads, mask)
-    output = rearrange(output, (:head_dim, :len, (:heads, :batch)) --> ((:head_dim, :heads), :len, :batch); heads=attn.n_heads)
+    output = sdpa(q, k, v; mask)
+    output = rearrange(output, (:head_dim, :len, :heads, ..) --> ((:head_dim, :heads), :len, ..); heads=attn.n_heads)
     return attn.wo(output)
 end
 
@@ -151,8 +150,8 @@ function TransformerBlock(
     )
 end
 
-function (block::TransformerBlock)(x; start_pos=1, rope=identity, mask=0)
-    h = x + block.attention(block.attention_norm(x), start_pos, rope, mask)
+function (block::TransformerBlock)(x; kws...)
+    h = x + block.attention(block.attention_norm(x), kws...)
     out = h + block.feed_forward(block.ffn_norm(h))
     return out
 end
