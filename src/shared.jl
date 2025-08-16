@@ -16,5 +16,13 @@ function glut(t::AbstractArray, d::Int, pos::Int)
     reshape(t, size(t)[1:pos]..., ntuple(Returns(1), (d - ndt))..., size(t)[(pos+1):end]...)
 end
 
-as_dense_on_device(x, array::DenseArray, T=eltype(x)) = similar(array, T, size(x)) .= x
-@non_differentiable as_dense_on_device(::Any...)
+like(v, x::AbstractArray, args...) = @ignore_derivatives fill!(similar(x, args...), v)
+zeros_like(x::AbstractArray, args...) = like(false, x, args...)
+ones_like(x::AbstractArray, args...) = like(true, x, args...)
+
+# example:
+# `transpose(like(1:5, arr_device, Float32))`
+# allows you to work with e.g. transposed ranges on the GPU
+like(x::AbstractArray, array::DenseArray, T=eltype(x)) = @ignore_derivatives similar(array, T, size(x)) .= x
+
+const as_dense_on_device = like

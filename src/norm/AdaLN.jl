@@ -10,10 +10,10 @@ cond = randn(Float32, 3,1)
 h = aln(h, cond)
 ```
 """
-struct AdaLN{A,B,C}
-    norm::A
-    shift::B
-    scale::C  
+@concrete struct AdaLN
+    norm
+    shift
+    scale  
 end
 
 Flux.@layer AdaLN

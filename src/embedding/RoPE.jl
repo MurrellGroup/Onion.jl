@@ -1,6 +1,5 @@
 """
     RoPE(dim::Int, max_length; theta::T=10000f0)
-    
 
 Rotary Position Embeddings (as in Llama3).
     
@@ -24,7 +23,7 @@ end
 
 Flux.@layer RoPE trainable=()
 
-Base.getindex(rope::RoPE, i) = RoPE(rope.cos[:,i,:,:], rope.sin[:,i,:,:])
+Base.getindex(rope::RoPE, i) = @views RoPE(rope.cos[:,i,:,:], rope.sin[:,i,:,:])
 
 function RoPE(dim::Int, end_pos::Int; theta::T=10000f0, start_pos=0) where T
     freqs = 1f0 ./ (theta .^ (T.(0:2:dim-1)[1:dim÷2] ./ dim))

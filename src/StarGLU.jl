@@ -18,13 +18,12 @@ end
 
 Flux.@layer StarGLU
 
-function StarGLU(dim::Int, ff_hidden_dim::Int; act=Flux.swish)
-    StarGLU(
-        Dense(dim => ff_hidden_dim, bias=false),
-        Dense(ff_hidden_dim => dim, bias=false),
-        Dense(dim => ff_hidden_dim, bias=false),
-        act
-    )
+function StarGLU(dim::Int, ff_hidden_dim::Int; act=Flux.swish, out_init_scale=1)
+    w1 = Dense(dim => ff_hidden_dim, bias=false)
+    w2 = Dense(ff_hidden_dim => dim, bias=false)
+    w3 = Dense(dim => ff_hidden_dim, bias=false)
+    w2.weight .*= out_init_scale
+    return StarGLU(w1, w2, w3, act)
 end
 
 (ff::StarGLU)(x) = ff.w2(ff.act(ff.w1(x)) .* ff.w3(x))
