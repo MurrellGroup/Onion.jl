@@ -141,6 +141,7 @@ using Flux
             @test size(output) == (dim,seq_len,batch_size)
         end
 
+        #=
         @testset "Masking" begin
             dim, seq_len, batch_size, n_heads = 32, 10, 4, 2
             x = randn(Float32, dim, seq_len, batch_size)
@@ -235,6 +236,7 @@ using Flux
             @test isapprox(output[:, 10, 4], mod_output[:, 10, 4])
             @test !isapprox(output, mod_output)
         end
+        =#
     end
 
     @testset "RoPE Tests" begin

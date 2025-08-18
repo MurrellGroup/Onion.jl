@@ -3,9 +3,9 @@
 
 Root Mean Square Layer Normalization. As used in Llama3.
 """
-struct RMSNorm{T<:AbstractFloat,W<:AbstractVector{T}}
-    weight::W
-    eps::T
+@concrete struct RMSNorm
+    weight
+    eps
 end
 
 Flux.@layer RMSNorm

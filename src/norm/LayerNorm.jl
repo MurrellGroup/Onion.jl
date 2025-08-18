@@ -9,10 +9,10 @@ x = randn(Float32, 64, 10, 1)
 y = ln(x)
 ```
 """
-struct LayerNorm{T,A<:AbstractVector{T},B<:AbstractVector{T}}
-    w::A
-    b::B
-    eps::T
+@concrete struct LayerNorm
+    w
+    b
+    eps
 end
 
 Flux.@layer LayerNorm

@@ -40,6 +40,14 @@ using ..Onion: causal_mask
 
 const Maybe{T} = Union{T, Nothing}
 
+apply_pair_bias(a, b::AbstractArray) = a .+ rearrange(b, einops"h ql kl ... -> kl ql h ...")
+apply_pair_bias(a, ::Nothing) = a
+
+apply_pad_mask(a, b::AbstractArray) = a .+ rearrange(log.(b), einops"kl ... -> kl 1 1 ...")
+apply_pad_mask(a, ::Nothing) = a
+
+apply_causal_mask(a, causal) = causal ? a .+ causal_mask(a) : a
+
 function sdpa(
     q::AbstractArray{T}, k::AbstractArray{T}, v::AbstractArray{T};
     pair::Maybe{AbstractArray{T}} = nothing,
@@ -49,14 +57,25 @@ function sdpa(
     d = size(q, 1)
     kT = rearrange(k, einops"d kl ... -> kl d ...")
     a = kT ⊠ q ./ √T(d)
-    isnothing(pair) || (a = a .+ rearrange(pair, einops"h ql kl ... -> kl ql h ..."))
-    isnothing(kpad_mask) || (a = a .+ rearrange(log.(kpad_mask), einops"kl ... -> kl 1 1 ..."))
-    causal && (a = a .+ causal_mask(a))
+    a = apply_pair_bias(a, pair)
+    a = apply_pad_mask(a, kpad_mask)
+    a = apply_causal_mask(a, causal)
     return v ⊠ softmax(a)
 end
 
-function sdpa(q::AnyGPUArray, k::AnyGPUArray, v::AnyGPUArray; kws...)
-    NNop.flash_attention(q, k, v; kws...)
+function sdpa(
+    q::AnyGPUArray, k::AnyGPUArray, v::AnyGPUArray;
+    causal=false, pair=nothing, kws...
+)
+    NNop.flash_attention(q, k, v, pair; causal, kws...)
+end
+
+function sdpa(
+    q::AnyGPUArray{<:Any,3}, k::AnyGPUArray{<:Any,3}, v::AnyGPUArray{<:Any,3};
+    kws...
+)
+    q, k, v = rearrange.((q, k, v), einops"... -> ... 1")
+    return rearrange(sdpa(q, k, v; kws...), einops"... 1 -> ...")
 end
 
 end

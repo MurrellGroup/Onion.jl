@@ -30,6 +30,8 @@ h = t(h, 1, rope[1:seqlen], mask)
     pair_proj
 end
 
+Flux.@layer TransformerBlock
+
 function TransformerBlock(
     in_dim::Int, n_heads::Int,
     n_kv_heads::Int = n_heads,
@@ -47,11 +49,16 @@ function TransformerBlock(
     )
 end
 
-function (block::TransformerBlock)(xq, xk=xq; cond=nothing, pair_feats=nothing, kws...)
+function (block::TransformerBlock)(
+    x, xs...;
+    cond=nothing, pair_feats=nothing,
+    pair=block.pair_proj(pair_feats),
+    kws...
+)
     cond = isnothing(cond) ? () : (cond,)
-    xq′ = block.attention_norm(xq, cond...)
-    xk′ = xk === xq ? xq′ : block.attention_norm(xk, cond...)
-    h = xq + block.attention(xq′, xk′; pair=block.pair_proj(pair_feats), kws...)
+    h = x + block.attention(
+        block.attention_norm(x, cond...), xs...;
+        pair, kws...)
     return h + block.feed_forward(block.ffn_norm(h, cond...))
 end
 
@@ -71,6 +78,8 @@ end
     block
     rope
 end
+
+Flux.@layer STRINGBlock
 
 function STRINGBlock(block::TransformerBlock, d_coords::Int; kws...)
     rope = STRINGRoPE(block.attention.head_dim, block.attention.n_heads, d_coords; kws...)
