@@ -6,10 +6,17 @@ using ConcreteStructs
 using Einops
 using Flux
 using LinearAlgebra
+using NNlib
+
+using Flux: @layer
 
 include("shared.jl")
 export glut
 export like, zeros_like, ones_like, falses_like, trues_like
+export watmul, ⨝
+
+include("BlockDense.jl")
+export BlockDense
 
 include("masks.jl")
 export self_att_padding_mask
