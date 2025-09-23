@@ -16,13 +16,13 @@ function softmax(x::AnyGPUArray)
 end
 
 
-function rms_norm(x::AbstractArray, w::AbstractVector; eps)
-    y = x .* (w ./ .√(mean(abs2, x, dims=1) .+ eps))
+function rms_norm(x::AbstractArray, w::AbstractVector; eps, offset)
+    y = (w .+ offset) .* x ./ .√(mean(abs2, x, dims=1) .+ eps)
     return y
 end
 
-function rms_norm(x::AnyGPUArray, w::AnyGPUVector; eps)
-    y = NNop.rms_norm(reshape(x, size(x, 1), :), w; ϵ=Float32(eps))
+function rms_norm(x::AnyGPUArray, w::AnyGPUVector; eps, offset)
+    y = NNop.rms_norm(reshape(x, size(x, 1), :), w; ϵ=Float32(eps), offset=Float32(offset))
     return reshape(y, size(x))
 end
 
