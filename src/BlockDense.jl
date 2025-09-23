@@ -6,7 +6,7 @@
 A block-diagonal version of a dense layer. Equivalent to `Flux.Dense` when `k=1`.
 """
 @concrete struct BlockDense
-    W; b; σ
+    weight; bias; σ
 end
 
 @layer BlockDense
@@ -19,11 +19,11 @@ function BlockDense(
     d2 % k == 0 || throw(ArgumentError("d2 must be divisible by k"))
     s1, s2 = d1 ÷ k, d2 ÷ k
     W = init(s2, s1, k)
-    b = bias ? init(d2) : nothing
+    b = bias ? zeros_like(W, d2) : false
     return BlockDense(W, b, σ)
 end
 
 function (bd::BlockDense)(x)
-    W, b, σ = bd.W, bd.b, bd.σ
+    W, b, σ = bd.weight, bd.bias, bd.σ
     return σ.(W ⨝ x .+ b)
 end

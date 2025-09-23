@@ -23,4 +23,11 @@
         end
     end
 
+    @testset "watmul" begin
+        W = rand(Float32, 3, 2, 5)
+        x = rand(Float32, 10, 7)
+        @test watmul(W, x) == W ⨝ x
+        @test size(watmul(W, x)) == (15, 7)
+    end
+
 end
