@@ -7,6 +7,6 @@ export RMSNorm
 include("AdaLN.jl")
 export AdaLN
 
-include("PNorm.jl")
-export PNorm
+include("LpNorm.jl")
+export LpNorm
 export L2Norm
