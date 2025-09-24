@@ -10,8 +10,9 @@ const ONION_TEST_UNET = get(ENV, "ONION_TEST_UNET", "false") == "true"
     include("Modulator.jl")
     include("DyT.jl")
 
-    include("transformers/transformers.jl")
     include("embedding/embedding.jl")
+    include("norm/norm.jl")
+    include("transformers/transformers.jl")
     
     if ONION_TEST_UNET
         include("UNet/UNet.jl")
