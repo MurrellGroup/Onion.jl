@@ -1,5 +1,5 @@
 """
-    FlexibleUNet(;
+    Onion.UNet.FlexibleUNet(;
         in_channels=3,
         out_channels=3,
         depth=3,
@@ -34,7 +34,7 @@ Supports optional time and class embeddings for diffusion models and conditional
 # Examples
 ```julia
 # Basic model without dropout
-model = FlexibleUNet(
+model = Onion.UNet.FlexibleUNet(
     in_channels=3,
     out_channels=3,
     depth=4,
@@ -44,7 +44,7 @@ model = FlexibleUNet(
 )
 
 # Model with dropout applied to the 3 innermost layers
-model = FlexibleUNet(
+model = Onion.UNet.FlexibleUNet(
     in_channels=3,
     out_channels=3,
     depth=4,

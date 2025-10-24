@@ -1,5 +1,5 @@
 """
-    GaussianFourierProjection(embed_dim::Int, scale::T=32.0f0)
+    Onion.UNet.GaussianFourierProjection(embed_dim::Int, scale::T=32.0f0)
 
 Creates a Gaussian Fourier feature projection for time embeddings. Used in diffusion models.
 
@@ -26,7 +26,7 @@ function (layer::GaussianFourierProjection{T})(t) where T
 end
 
 """
-    TimeEmbedding(embed_dim::Int, num_classes::Int, embedding_dim::Int)
+    Onion.UNet.TimeEmbedding(embed_dim::Int, num_classes::Int, embedding_dim::Int)
 
 Creates time and optional class embeddings for diffusion models.
 
@@ -37,7 +37,7 @@ Creates time and optional class embeddings for diffusion models.
 
 # Examples
 ```julia
-time_emb = TimeEmbedding(256, 10, 128)
+time_emb = Onion.UNet.TimeEmbedding(256, 10, 128)
 t = randn(Float32, 16)
 labels = rand(1:10, 16)
 h = time_emb(t, labels)
@@ -77,7 +77,7 @@ function (te::TimeEmbedding)(t, labels)
 end
 
 """
-    ResidualBlock(channels::Int; kernel_size=3, time_emb=false, emb_dim=256, dropout=0.0, activation=relu)
+    Onion.UNet.ResidualBlock(channels::Int; kernel_size=3, time_emb=false, emb_dim=256, dropout=0.0, activation=relu)
 
 A ResNet-style residual block with optional time embeddings, dropout, and configurable activation.
 
@@ -92,10 +92,10 @@ A ResNet-style residual block with optional time embeddings, dropout, and config
 # Examples
 ```julia
 # Basic block with dropout
-rb = ResidualBlock(64, dropout=0.1)
+rb = Onion.UNet.ResidualBlock(64, dropout=0.1)
 
 # Block with time embeddings and custom activation
-rb = ResidualBlock(64, time_emb=true, emb_dim=256, dropout=0.1, activation=swish)
+rb = Onion.UNet.ResidualBlock(64, time_emb=true, emb_dim=256, dropout=0.1, activation=swish)
 
 # Usage
 h = randn(Float32, 32, 32, 64, 1)
@@ -157,7 +157,7 @@ function (rb::ResidualBlock)(x, t)
 end
 
 """
-    EncoderBlock(in_channels::Int, out_channels::Int; time_emb=false, emb_dim=256, dropout=0.0, activation=relu)
+    Onion.UNet.EncoderBlock(in_channels::Int, out_channels::Int; time_emb=false, emb_dim=256, dropout=0.0, activation=relu)
 
 An encoder block for UNet architecture with optional time embeddings and dropout.
 
@@ -171,7 +171,7 @@ An encoder block for UNet architecture with optional time embeddings and dropout
 
 # Examples
 ```julia
-enc = EncoderBlock(3, 64, time_emb=true, emb_dim=256, dropout=0.1)
+enc = Onion.UNet.EncoderBlock(3, 64, time_emb=true, emb_dim=256, dropout=0.1)
 h = randn(Float32, 32, 32, 3, 1)
 t = randn(Float32, 256, 1)
 skip, h = enc(h, t)
@@ -219,7 +219,7 @@ function (eb::EncoderBlock)(x, t)
 end
 
 """
-    Bottleneck(channels::Int; time_emb=false, emb_dim=256, dropout=0.0, activation=relu)
+    Onion.UNet.Bottleneck(channels::Int; time_emb=false, emb_dim=256, dropout=0.0, activation=relu)
 
 A bottleneck block for UNet architecture with optional time embeddings and dropout.
 
@@ -232,7 +232,7 @@ A bottleneck block for UNet architecture with optional time embeddings and dropo
 
 # Examples
 ```julia
-bn = Bottleneck(256, time_emb=true, emb_dim=256, dropout=0.2)
+bn = Onion.UNet.Bottleneck(256, time_emb=true, emb_dim=256, dropout=0.2)
 h = randn(Float32, 8, 8, 256, 1)
 t = randn(Float32, 256, 1)
 h = bn(h, t)
@@ -276,7 +276,7 @@ function (b::Bottleneck)(x, t)
 end
 
 """
-    DecoderBlock(in_channels::Int, out_channels::Int; time_emb=false, emb_dim=256, dropout=0.0, activation=relu)
+    Onion.UNet.DecoderBlock(in_channels::Int, out_channels::Int; time_emb=false, emb_dim=256, dropout=0.0, activation=relu)
 
 A decoder block for UNet architecture with optional time embeddings and dropout.
 
@@ -290,7 +290,7 @@ A decoder block for UNet architecture with optional time embeddings and dropout.
 
 # Examples
 ```julia
-dec = DecoderBlock(256, 128, time_emb=true, emb_dim=256, dropout=0.1)
+dec = Onion.UNet.DecoderBlock(256, 128, time_emb=true, emb_dim=256, dropout=0.1)
 h = randn(Float32, 8, 8, 256, 1)
 skip = randn(Float32, 16, 16, 128, 1)
 t = randn(Float32, 256, 1)
