@@ -18,6 +18,6 @@ end
 
 @layer AdaLN
 
-AdaLN(dim::Int, cond_dim::Int) = AdaLN(LayerNorm(dim), Dense(cond_dim, dim), Dense(cond_dim, dim))
+AdaLN(dim::Int, cond_dim::Int) = AdaLN(Flux.LayerNorm(dim), Flux.Dense(cond_dim, dim), Flux.Dense(cond_dim, dim))
 
 (l::AdaLN)(x, cond) = l.norm(x) .* (1 .+ glut(l.scale(cond), ndims(x), 1)) .+ glut(l.shift(cond), ndims(x), 1)

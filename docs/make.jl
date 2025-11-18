@@ -3,8 +3,8 @@ using Documenter
 
 DocMeta.setdocmeta!(Onion, :DocTestSetup, :(using Onion); recursive=true)
 
-makedocs(;
-    modules=[Onion],
+makedocs(; 
+    modules=[Onion, Onion.UNet, Onion.Utils],
     authors="murrellb <murrellb@gmail.com> and contributors",
     sitename="Onion.jl",
     format=Documenter.HTML(;

@@ -19,11 +19,11 @@ LpNorm(p::Int; kws...) = LpNorm{p}(; kws...)
 abs3(x) = abs2(x) * abs(x)
 abs4(x) = abs2(abs2(x))
 
-(norm::LpNorm{1})(x) = x ./ (sum(abs, x; norm.dims) .+ ofeltype(norm.eps, x))
-(norm::LpNorm{2})(x) = x ./ (.√sum(abs2, x; norm.dims) .+ ofeltype(norm.eps, x))
-(norm::LpNorm{3})(x) = x ./ (.∛sum(abs3, x; norm.dims) .+ ofeltype(norm.eps, x))
-(norm::LpNorm{4})(x) = x ./ (.∜sum(abs4, x; norm.dims) .+ ofeltype(norm.eps, x))
-(norm::LpNorm{p})(x) where p = x ./ (sum(a -> abs(a^p), x; norm.dims) .^ (1//p) .+ ofeltype(norm.eps, x))
+((; dims, eps)::LpNorm{1})(x) = x ./ (sum(abs, x; dims) .+ ofeltype(eps, x))
+((; dims, eps)::LpNorm{2})(x) = x ./ (.√sum(abs2, x; dims) .+ ofeltype(eps, x))
+((; dims, eps)::LpNorm{3})(x) = x ./ (.∛sum(abs3, x; dims) .+ ofeltype(eps, x))
+((; dims, eps)::LpNorm{4})(x) = x ./ (.∜sum(abs4, x; dims) .+ ofeltype(eps, x))
+((; dims, eps)::LpNorm{p})(x) where p = x ./ (sum(a -> abs(a^p), x; dims) .^ (1//p) .+ ofeltype(eps, x))
 
 """
     L2Norm(; dims=1, eps=1f-6)

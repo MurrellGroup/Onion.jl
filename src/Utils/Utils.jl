@@ -1,6 +1,7 @@
 module Utils
 
 using ArrayInterface: restructure
+using BFloat16s: BFloat16
 using ChainRulesCore
 using Einops
 using LinearAlgebra
@@ -27,5 +28,8 @@ include("masks.jl")
 export self_att_padding_mask
 export cross_att_padding_mask
 export causal_mask
+
+include("b16.jl")
+export bf16
 
 end

@@ -5,5 +5,5 @@ CurrentModule = Onion
 # API Reference
 
 ```@autodocs
-Modules = [Onion]
+Modules = [Onion, Onion.UNet, Onion.Utils]
 ```

@@ -42,7 +42,7 @@ function Attention(
     qk_norm=false,
     q_norm=qk_norm ? RMSNorm(head_dim) : identity,
     k_norm=qk_norm ? RMSNorm(head_dim) : identity,
-    g1_gate=(Y, X) -> Y,
+    g1_gate=something,
     out_init_scale=1,
 )
     @assert n_heads % n_kv_heads == 0 "n_heads must be divisible by n_kv_heads"

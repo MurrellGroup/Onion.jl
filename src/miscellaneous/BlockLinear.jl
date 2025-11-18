@@ -1,5 +1,5 @@
 """
-    BlockDense(
+    BlockLinear(
         d1 => d2, k, σ=identity;
         bias::Bool=true, init=Flux.glorot_uniform)
 
@@ -8,15 +8,15 @@ where the blocks are of size `(d2 ÷ k, d1 ÷ k)`.
 
 Equivalent to [`Linear`](@ref) when `k=1`.
 """
-@concrete struct BlockDense
+@concrete struct BlockLinear
     weight <: AbstractArray
     bias <: Maybe{AbstractArray}
     σ
 end
 
-@layer BlockDense
+@layer BlockLinear
 
-function BlockDense(
+function BlockLinear(
     (d1, d2)::Pair{Int,Int}, k::Int, σ=identity;
     bias::Bool=true, init=Flux.glorot_uniform
 )
@@ -25,12 +25,12 @@ function BlockDense(
     s1, s2 = d1 ÷ k, d2 ÷ k
     W = init(s2, s1, k)
     b = bias ? zeros_like(W, d2) : nothing
-    return BlockDense(W, b, σ)
+    return BlockLinear(W, b, σ)
 end
 
 # σ.(W ⨝ x .⊞ b)
-function (layer::BlockDense)(x)
-    y = layer.weight ⨝ x
-    NNlib.bias_act!(layer.σ, y, @something layer.bias false)
+function ((; weight, bias, σ)::BlockLinear)(x)
+    y = weight ⨝ x
+    NNlib.bias_act!(σ, y, @something bias false)
     return y
 end

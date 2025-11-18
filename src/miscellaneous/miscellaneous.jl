@@ -1,8 +1,8 @@
 include("Linear.jl")
 export Linear
 
-include("BlockDense.jl")
-export BlockDense
+include("BlockLinear.jl")
+export BlockLinear
 
 include("DyT.jl")
 export DyT
@@ -14,6 +14,3 @@ export unchunk
 
 include("Modulator.jl")
 export Modulator
-
-include("StarGLU.jl")
-export StarGLU

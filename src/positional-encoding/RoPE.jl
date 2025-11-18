@@ -47,8 +47,10 @@ end
 
 function RoPE(
     dim::Int, end_pos::Int; 
-    theta::T=10000f0, use_scaled=false, scale_factor=8, start_pos=0
-) where T
+    T=Float32,
+    theta=10000f0, use_scaled=false, scale_factor=8, start_pos=0
+)
+    theta = T(theta)
     freqs = 1f0 ./ (theta .^ (T.(0:2:dim-1)[1:dim÷2] ./ dim))
     use_scaled && apply_scaling!(freqs; scale_factor)
     freqs_complex = cis.(T.(start_pos:end_pos-1) * freqs')

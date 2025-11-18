@@ -1,7 +1,9 @@
+using Onion.UNet
+
 @testset "UNet.jl" begin
     # Test TimeEmbedding
     @testset "TimeEmbedding" begin
-        time_emb = TimeEmbedding(256, 10, 128)
+        time_emb = UNet.TimeEmbedding(256, 10, 128)
         t = randn(Float32, 16)
         labels = rand(1:10, 16)
 
@@ -17,13 +19,13 @@
     # Test ResidualBlock
     @testset "ResidualBlock" begin
         # Without time embedding
-        rb1 = ResidualBlock(64)
+        rb1 = UNet.ResidualBlock(64)
         x = randn(Float32, 32, 32, 64, 2)
         y1 = rb1(x)
         @test size(y1) == size(x)
 
         # With time embedding
-        rb2 = ResidualBlock(64, time_emb=true, emb_dim=256)
+        rb2 = UNet.ResidualBlock(64, time_emb=true, emb_dim=256)
         t = randn(Float32, 256, 2)
         y2 = rb2(x, t)
         @test size(y2) == size(x)
@@ -31,7 +33,7 @@
 
     # Test EncoderBlock
     @testset "EncoderBlock" begin
-        eb = EncoderBlock(3, 64, time_emb=true, emb_dim=256)
+        eb = UNet.EncoderBlock(3, 64, time_emb=true, emb_dim=256)
         x = randn(Float32, 32, 32, 3, 2)
         t = randn(Float32, 256, 2)
 
@@ -42,7 +44,7 @@
 
     # Test FlexibleUNet
     @testset "FlexibleUNet Forward Pass" begin
-        model = FlexibleUNet(
+        model = UNet.FlexibleUNet(
             in_channels=3,
             out_channels=3,
             depth=4,
@@ -75,24 +77,24 @@
     @testset "UNet Helpers" begin
 
         # Test process_encoders and process_decoders with a mini-model
-        enc1 = EncoderBlock(3, 16)
-        enc2 = EncoderBlock(16, 32)
+        enc1 = UNet.EncoderBlock(3, 16)
+        enc2 = UNet.EncoderBlock(16, 32)
         encoders = (enc1, enc2)
 
-        dec1 = DecoderBlock(32, 16)
-        dec2 = DecoderBlock(16, 8)
+        dec1 = UNet.DecoderBlock(32, 16)
+        dec2 = UNet.DecoderBlock(16, 8)
         decoders = (dec1, dec2)
 
         x = randn(Float32, 32, 32, 3, 2)
 
         # Test process_encoders
-        x_out, skips = process_encoders(x, encoders)
+        x_out, skips = UNet.process_encoders(x, encoders)
         @test length(skips) == 2
         @test size(x_out) == (8, 8, 32, 2)
 
         # Test process_decoders
         rev_skips = reverse(skips)
-        y = process_decoders(x_out, decoders, rev_skips)
+        y = UNet.process_decoders(x_out, decoders, rev_skips)
         @test size(y) == (32, 32, 8, 2)
     end
 end
