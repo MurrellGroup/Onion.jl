@@ -8,13 +8,11 @@ where the blocks are of size `(d2 ÷ k, d1 ÷ k)`.
 
 Equivalent to [`Linear`](@ref) when `k=1`.
 """
-@concrete struct BlockLinear
+@concrete struct BlockLinear <: Layer
     weight <: AbstractArray
     bias <: Maybe{AbstractArray}
     σ
 end
-
-@layer BlockLinear
 
 function BlockLinear(
     (d1, d2)::Pair{Int,Int}, k::Int, σ=identity;
@@ -33,4 +31,12 @@ function ((; weight, bias, σ)::BlockLinear)(x)
     y = weight ⨝ x
     NNlib.bias_act!(σ, y, @something bias false)
     return y
+end
+
+function Base.show(io::IO, (; weight, bias, σ)::BlockLinear)
+    s2, s1, k = size(weight)
+    print(io, "BlockLinear($(s1 * k) => $(s2 * k)", ", $k")
+    σ == identity || print(io, ", $(σ)")
+    bias isa Union{Nothing,Bool} && print(io, ", bias=false")
+    print(io, ")")
 end

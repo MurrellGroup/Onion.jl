@@ -1,11 +1,13 @@
+include("Lazy.jl")
+
 include("Linear.jl")
 export Linear
 
 include("BlockLinear.jl")
 export BlockLinear
 
-include("DyT.jl")
-export DyT
+include("AdaAffine.jl")
+export AdaAffine
 
 include("FSQ.jl")
 export FSQ
@@ -14,9 +16,6 @@ export unchunk
 
 include("Modulator.jl")
 export Modulator
-
-include("Untrainable.jl")
-export Untrainable
 
 include("VirtualWidthNetwork.jl")
 export VirtualWidthNetwork

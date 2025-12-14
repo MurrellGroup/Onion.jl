@@ -10,14 +10,12 @@ cond = randn(Float32, 3,1)
 h = aln(h, cond)
 ```
 """
-@concrete struct AdaLN
+@concrete struct AdaLN <: Layer
     norm
     shift
     scale  
 end
 
-@layer AdaLN
-
-AdaLN(dim::Int, cond_dim::Int) = AdaLN(Flux.LayerNorm(dim), Flux.Dense(cond_dim, dim), Flux.Dense(cond_dim, dim))
+AdaLN(dim::Int, cond_dim::Int) = AdaLN(Flux.LayerNorm(dim), Dense(cond_dim, dim), Dense(cond_dim, dim))
 
 (l::AdaLN)(x, cond) = l.norm(x) .* (1 .+ glut(l.scale(cond), ndims(x), 1)) .+ glut(l.shift(cond), ndims(x), 1)

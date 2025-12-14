@@ -15,6 +15,9 @@ export glut
 include("reshapable.jl")
 export reshapable, hardreshape
 
+include("lazy.jl")
+export @lazy
+
 include("like.jl")
 export like, zeros_like, ones_like, falses_like, trues_like
 
