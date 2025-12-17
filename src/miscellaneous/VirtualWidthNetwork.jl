@@ -20,6 +20,19 @@ to backbone width \$D\$ by projecting down the n segments into m segments,
 - **carries** forward the previous over-width state with a projection
 from n segments to n segments, adding it to the expanded backbone output.
 
+# Examples
+
+```jldoctest
+julia> vwn = VirtualWidthNetwork(16, 2);
+
+julia> layer = Dense(8 => 8);
+
+julia> h = randn(Float32, 64, 10);
+
+julia> vwn(layer, h) |> size
+(64, 10)
+```
+
 See: [Virtual Width Networks](https://arxiv.org/abs/2511.11238)
 """
 @concrete struct VirtualWidthNetwork <: Layer
