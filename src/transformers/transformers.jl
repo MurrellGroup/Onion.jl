@@ -13,3 +13,6 @@ export KVCache, kv_cache, extend, pos, pos!
 
 include("StarGLU.jl")
 export StarGLU
+
+include("MultiHeadFFN.jl")
+export MultiHeadFFN
