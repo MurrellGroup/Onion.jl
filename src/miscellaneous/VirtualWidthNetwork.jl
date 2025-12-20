@@ -23,14 +23,19 @@ from n segments to n segments, adding it to the expanded backbone output.
 # Examples
 
 ```jldoctest
-julia> vwn = VirtualWidthNetwork(16, 2);
+julia> vwn = VirtualWidthNetwork(3, 2); # hidden width is 1.5x the backbone width 
 
-julia> layer = Dense(8 => 8);
+julia> h = randn(Float32, 12, 10); # hidden state is kept at 12
 
-julia> h = randn(Float32, 64, 10);
+julia> layer = Dense(8 => 8); # backbone width is 8
 
 julia> vwn(layer, h) |> size
 (64, 10)
+
+julia> vwn(layer, h) == vwn(h) do h
+           layer(h)
+       end
+true
 ```
 
 See: [Virtual Width Networks](https://arxiv.org/abs/2511.11238)
@@ -45,6 +50,8 @@ function VirtualWidthNetwork(n, m)
     up   = Float32[repeat(I(m), 1, fld(n, m));; I(mod(n, m)); zeros(m - mod(n, m), mod(n, m))]
     return VirtualWidthNetwork(down, side, up)
 end
+
+(vwn::VirtualWidthNetwork)(layer) = Base.Fix1(vwn, layer)
 
 function (vwn::VirtualWidthNetwork)(layer, h::AbstractArray, ::typeof(einsum))
     x  = einsum(h, vwn.down, einops"(d n) ..., n m -> (d m) ...")
