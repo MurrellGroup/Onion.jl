@@ -15,5 +15,8 @@ export unchunk
 include("Modulator.jl")
 export Modulator
 
-include("StarGLU.jl")
-export StarGLU
+include("Untrainable.jl")
+export Untrainable
+
+include("VirtualWidthNetwork.jl")
+export VirtualWidthNetwork

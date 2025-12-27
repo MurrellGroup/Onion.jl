@@ -5,7 +5,7 @@
         init=Flux.glorot_uniform
     )
 
-A block-diagonal version of a dense layer. See also [`BlockDense`](@ref).
+See also [`BlockLinear`](@ref).
 """
 @concrete struct Linear
     weight <: AbstractArray
@@ -25,10 +25,10 @@ function Linear(
 end
 
 # σ.(W * x .+ b)
-function (layer::Linear)(x)
+function ((; weight, bias, σ)::Linear)(x)
     x′ = hardreshape(x, size(x, 1), :)
-    y′ = layer.weight * x′
-    NNlib.bias_act!(layer.σ, y′, @something layer.bias false)
+    y′ = weight * x′
+    NNlib.bias_act!(σ, y′, @something bias false)
     y = reshape(y′, size(y′, 1), size(x)[2:end]...)
     return y
 end

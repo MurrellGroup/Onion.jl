@@ -29,8 +29,8 @@ function BlockLinear(
 end
 
 # σ.(W ⨝ x .⊞ b)
-function (layer::BlockLinear)(x)
-    y = layer.weight ⨝ x
-    NNlib.bias_act!(layer.σ, y, @something layer.bias false)
+function ((; weight, bias, σ)::BlockLinear)(x)
+    y = weight ⨝ x
+    NNlib.bias_act!(σ, y, @something bias false)
     return y
 end

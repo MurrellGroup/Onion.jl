@@ -9,6 +9,9 @@ using NNlib
 
 using Flux: @layer
 
+abstract type Layer end
+@layer Layer
+
 export @concrete
 export @layer
 
@@ -26,11 +29,11 @@ const Maybe{T} = Union{T,Nothing}
 
 include("Ops/Ops.jl")
 
+include("ipa/ipa.jl")
 include("miscellaneous/miscellaneous.jl")
 include("norm/norm.jl")
 include("convolution/convolution.jl")
-include("transformers/transformers.jl")
 include("positional-encoding/positional-encoding.jl")
-include("ipa/ipa.jl")
+include("transformers/transformers.jl")
 
 end

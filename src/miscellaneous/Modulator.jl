@@ -24,10 +24,13 @@ end
 
 @layer Modulator
 
-function Modulator((in, out)::Pair{Int,Int}, σ=sigmoid; op=*, bias=false, shape=nothing)
+function Modulator(
+    (in, out)::Pair{Int,Int}, σ=sigmoid;
+    op=*, bias=false, shape=nothing, init=Flux.kaiming_uniform
+)
     shape = isnothing(shape) ? out : shape
     prod(shape) == out || throw(DimensionMismatch("prod(shape) must be equal to out"))
-    W = Linear(in => out; bias)
+    W = Linear(in => out; bias, init)
     return Modulator(W, σ, op, shape)
 end
 

@@ -53,12 +53,8 @@ function RoPE(
     theta = T(theta)
     freqs = 1f0 ./ (theta .^ (T.(0:2:dim-1)[1:dim÷2] ./ dim))
     use_scaled && apply_scaling!(freqs; scale_factor)
-    freqs_complex = cis.(T.(start_pos:end_pos-1) * freqs')
-    cos = permutedims(real(freqs_complex), (2, 1))  # (head_dim/2, seq_len)
-    sin = permutedims(imag(freqs_complex), (2, 1))
-    cos = reshape(cos, dim÷2, end_pos - start_pos)
-    sin = reshape(sin, dim÷2, end_pos - start_pos)
-    return RoPE(cos, sin)
+    freqs_complex = transpose(cis.(T.(start_pos:end_pos-1) * freqs'))
+    return RoPE(real(freqs_complex), imag(freqs_complex))
 end
 
 # Note about Huggingface weights and rotary embeddings:
