@@ -17,6 +17,3 @@ export Modulator
 
 include("Untrainable.jl")
 export Untrainable
-
-include("VirtualWidthNetwork.jl")
-export VirtualWidthNetwork

@@ -3,8 +3,8 @@ using ChainRulesCore
 using NNlib
 
 """
-    VirtualWidthNetwork(n, m)
-    (vwn::VirtualWidthNetwork)(layer, h::AbstractArray)
+    GeneralizedHyperConnections(n, m)
+    (ghc::GeneralizedHyperConnections)(layer, h::AbstractArray)
 
 Wrap a sublayer (e.g. attention or FFN) with the static form of
 **Generalized Hyper-Connections (GHC)**.
@@ -23,16 +23,16 @@ from n segments to n segments, adding it to the expanded backbone output.
 # Examples
 
 ```jldoctest
-julia> vwn = VirtualWidthNetwork(3, 2); # hidden width is 1.5x the backbone width 
+julia> ghc = GeneralizedHyperConnections(3, 2); # hidden width is 1.5x the backbone width 
 
 julia> h = randn(Float32, 12, 10); # hidden state is kept at 12
 
 julia> layer = Dense(8 => 8); # backbone width is 8
 
-julia> vwn(layer, h) |> size
+julia> ghc(layer, h) |> size
 (64, 10)
 
-julia> vwn(layer, h) == vwn(h) do h
+julia> ghc(layer, h) == ghc(h) do h
            layer(h)
        end
 true
@@ -40,29 +40,31 @@ true
 
 See: [Virtual Width Networks](https://arxiv.org/abs/2511.11238)
 """
-@concrete struct VirtualWidthNetwork <: Layer
+@concrete struct GeneralizedHyperConnections <: AbstractConnections
     down; side; up
 end
 
-function VirtualWidthNetwork(n, m)
+const GHC = GeneralizedHyperConnections
+
+function GeneralizedHyperConnections(n, m)
     down = Float32[I(m); zeros(n - m, m)]
     side = Float32[I(n);]
     up   = Float32[repeat(I(m), 1, fld(n, m));; I(mod(n, m)); zeros(m - mod(n, m), mod(n, m))]
-    return VirtualWidthNetwork(down, side, up)
+    return GeneralizedHyperConnections(down, side, up)
 end
 
-(vwn::VirtualWidthNetwork)(layer) = Base.Fix1(vwn, layer)
+(ghc::GeneralizedHyperConnections)(layer) = Base.Fix1(ghc, layer)
 
-function (vwn::VirtualWidthNetwork)(layer, h::AbstractArray, ::typeof(einsum))
-    x  = einsum(h, vwn.down, einops"(d n) ..., n m -> (d m) ...")
+function (ghc::GeneralizedHyperConnections)(layer, h::AbstractArray, ::typeof(einsum))
+    x  = einsum(h, ghc.down, einops"(d n) ..., n m -> (d m) ...")
     z  = layer(x)
-    h′ = einsum(z, vwn.up, einops"(d m) ..., m n -> (d n) ...") +
-        einsum(h, vwn.side, einops"(d n₁) ..., n₁ n₂ -> (d n₂) ...")
+    h′ = einsum(z, ghc.up, einops"(d m) ..., m n -> (d n) ...") +
+        einsum(h, ghc.side, einops"(d n₁) ..., n₁ n₂ -> (d n₂) ...")
     return h′
 end
 
-function (vwn::VirtualWidthNetwork)(layer, h::AbstractArray)
-    (; down, side, up) = vwn
+function (ghc::GeneralizedHyperConnections)(layer, h::AbstractArray)
+    (; down, side, up) = ghc
     n, m = size(down)
     H  = rearrange(h, einops"(d n) ... -> d n ..."; n)
     X  = batched_mul(H, down)
@@ -77,11 +79,11 @@ end
 
 function ChainRulesCore.rrule(
     config::RuleConfig{>:HasReverseMode},
-    vwn::VirtualWidthNetwork,
+    ghc::GeneralizedHyperConnections,
     layer,
     h::AbstractArray
 )
-    (; down, side, up) = vwn
+    (; down, side, up) = ghc
     n, m = size(down)
     H  = rearrange(h, einops"(d n) ... -> d n ..."; n)
     X  = batched_mul(H, down)
@@ -92,7 +94,7 @@ function ChainRulesCore.rrule(
     @mul! H′ += H * side
     h′ = rearrange(H′, einops"d n ... -> (d n) ...")
 
-    function vwn_pullback(Δh′_raw)
+    function ghc_pullback(Δh′_raw)
         Δh′ = unthunk(Δh′_raw)
         ΔH′ = rearrange(Δh′, einops"(d n) ... -> d n ..."; n)
 
@@ -111,9 +113,9 @@ function ChainRulesCore.rrule(
 
         Δh = rearrange(ΔH, einops"d n ... -> (d n) ...")
 
-        Δvwn = Tangent{VirtualWidthNetwork}(; down=Δdown, side=Δside, up=Δup)
-        return (Δvwn, Δlayer, Δh)
+        Δghc = Tangent{GeneralizedHyperConnections}(; down=Δdown, side=Δside, up=Δup)
+        return (Δghc, Δlayer, Δh)
     end
 
-    return h′, vwn_pullback
+    return h′, ghc_pullback
 end
