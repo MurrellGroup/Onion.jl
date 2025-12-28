@@ -30,13 +30,6 @@ function InvariantPointAttention(;
     )
 end
 
-function pairwise_sqeuclidean(x,y)
-    A_sqnorms = sum(abs2, x, dims=2)
-    B_sqnorms = sum(abs2, y, dims=1)
-    AB_dots = batched_mul(x,y)
-    return A_sqnorms .- 2 .* AB_dots .+ B_sqnorms
-end
-
 function (layer::InvariantPointAttention)(s, z, (R, t))
     q, k, v = split_axis(layer.qkv_proj(s), 3; dims=1)
     q, k, v = rearrange.((q, k, v), einops"(c h) l ... -> c l h ..."; h=layer.num_heads)
