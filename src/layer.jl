@@ -11,6 +11,8 @@ abstract type LayerStyle end
 struct EagerStyle <: LayerStyle end
 struct LazyStyle <: LayerStyle end
 
+function lazy_apply end
+
 LayerStyle(::Type{<:Layer}) = EagerStyle()
 
 fuse(layer, args...; kws...) = _fuse(LayerStyle(typeof(layer)), layer, args...; kws...)
