@@ -28,9 +28,7 @@ include("ofeltype.jl")
 export ofeltype
 
 include("masks.jl")
-export self_att_padding_mask
-export cross_att_padding_mask
-export causal_mask
+export causal_mask, self_att_padding_mask, cross_att_padding_mask
 
 include("b16.jl")
 export bf16

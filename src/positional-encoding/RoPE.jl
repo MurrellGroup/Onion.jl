@@ -13,7 +13,7 @@ t = TransformerBlock(dim, n_heads, n_kv_heads)
 h = randn(Float32, dim, seqlen, 1)
 
 rope = RoPE(dim ÷ n_heads, 1000)
-h = t(h, 1, rope[1:seqlen]) #Note the subsetting to match seqlen
+h = t(h; rope=rope[1:seqlen]) #Note the subsetting to match seqlen
 ```
 """
 struct RoPE{A<:AbstractArray}

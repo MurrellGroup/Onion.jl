@@ -62,7 +62,6 @@ function cross_att_padding_mask(padmask, other_dim; T=Float32)
     return log.(repeat(pm, einops"n ... -> n m ..."; m=other_dim))
 end
 
-
 function causal_mask(x::AbstractArray{<:AbstractFloat})
     n = size(x, 2)
     mask = like(-Inf, x, n, n)

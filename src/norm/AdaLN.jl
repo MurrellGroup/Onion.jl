@@ -1,7 +1,12 @@
 """
     AdaLN(dim::Int, cond_dim::Int)
 
-Adaptive Layer Normalization.
+Adaptive Layer Normalization. 
+
+Adaptive Layer Normalization modulates the normalized output using learned scale and shift parameters computed from a conditioning tensor.
+
+The forward pass computes: `output = normalized(x) * (1 + scale(cond)) + shift(cond)`
+where `scale` and `shift` are learned Dense layers that transform the conditioning tensor.
 
 ```julia
 aln = AdaLN(5, 3)
