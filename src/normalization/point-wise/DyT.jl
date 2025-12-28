@@ -25,3 +25,5 @@ end
 
 lazy_apply((; α, weight, bias)::DyT, x) = @lazy weight * tanh(α * x) + bias
 LayerStyle(::Type{<:DyT}) = LazyStyle()
+
+Base.show(io::IO, (; weight)::DyT) = print(io, "DyT($(length(weight)))")

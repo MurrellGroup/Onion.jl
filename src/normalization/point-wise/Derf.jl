@@ -11,8 +11,6 @@ See [Stronger Normalization-Free Transformers](https://arxiv.org/abs/2512.10938)
     α; s; γ; β
 end
 
-Base.show(io::IO, (; γ)::Derf) = print(io, "Derf($(length(γ)))")
-
 function Derf(
     dim::Integer;
     init_alpha::Real = 0.5,
@@ -32,3 +30,5 @@ LayerStyle(::Type{<:Derf}) = LazyStyle()
 @views function Base.getindex((; α, s, γ, β)::Derf, i::AbstractVector)
     Derf(α, s, γ[i], β[i])
 end
+
+Base.show(io::IO, (; γ)::Derf) = print(io, "Derf($(length(γ)))")

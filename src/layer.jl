@@ -21,6 +21,12 @@ _fuse(::LazyStyle, layer, args...; kws...) = lazy_apply(layer, args...; kws...)
 
 apply(args...; kws...) = Broadcast.materialize(fuse(args...; kws...))
 
+function (layer::Layer)(args...; kws...)
+    LayerStyle(typeof(layer)) isa EagerStyle &&
+        error("Expected eager layer $(typeof(layer)) to define its own method")
+    return apply(layer, args...; kws...)
+end
+
 
 const UNICODE_PROPERTY_MAP = (
     :α => :alpha,   :β => :beta,    :γ => :gamma,
