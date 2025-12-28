@@ -15,6 +15,9 @@ export glut
 include("reshapable.jl")
 export reshapable, hardreshape
 
+include("split_axis.jl")
+export split_axis
+
 include("lazy.jl")
 export @lazy
 
