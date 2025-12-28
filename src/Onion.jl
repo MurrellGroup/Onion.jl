@@ -12,6 +12,8 @@ const Maybe{T} = Union{T,Nothing}
 
 include("Utils/Utils.jl")
 using .Utils
+import .Utils: split
+export split_axis
 export glut
 export like, zeros_like, ones_like, falses_like, trues_like
 export watmul, ⨝
