@@ -33,5 +33,6 @@ include("connections/connections.jl")
 include("convolution/convolution.jl")
 include("positional-encoding/positional-encoding.jl")
 include("transformers/transformers.jl")
+include("InvariantPointAttention/InvariantPointAttention.jl")
 
 end

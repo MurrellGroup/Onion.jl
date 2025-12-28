@@ -7,7 +7,7 @@ using Einops
 using LinearAlgebra
 
 include("mul.jl")
-export @mul!, mul, ᵀ
+export @mul!, mul, ⊗, ᵀ
 
 include("glut.jl")
 export glut

@@ -94,6 +94,8 @@ end
 
 mul(A, B) = batched_mul(A, B)
 
+const ⊗ = mul
+
 function mul(
     A::HighDimTranspose{<:Any,N},
     B::AbstractArray{<:Any,N}
