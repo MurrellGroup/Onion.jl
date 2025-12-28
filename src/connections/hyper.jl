@@ -47,6 +47,7 @@ end
 const GHC = GeneralizedHyperConnection
 
 function GeneralizedHyperConnection(n, m)
+    n >= m || throw(ArgumentError("n must be greater than or equal to m"))
     down = Float32[I(m); zeros(n - m, m)]
     side = Float32[I(n);]
     up   = Float32[repeat(I(m), 1, fld(n, m));; I(mod(n, m)); zeros(m - mod(n, m), mod(n, m))]
