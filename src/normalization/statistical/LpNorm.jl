@@ -6,12 +6,10 @@ A p-norm layer. This layer has no trainable parameters.
 
 See also the [`L2Norm`](@ref) alias for `p=2`.
 """
-@concrete struct LpNorm{p}
+@concrete struct LpNorm{p} <: StatisticalNorm
     dims
     eps
 end
-
-@layer LpNorm
 
 LpNorm{p}(; dims=1, eps=1f-7) where p = LpNorm{p}(dims, eps)
 LpNorm(p::Int; kws...) = LpNorm{p}(; kws...)

@@ -6,6 +6,7 @@ using Einops
 using Flux
 using LinearAlgebra
 using NNlib
+using Rewrap
 
 const Maybe{T} = Union{T,Nothing}
 

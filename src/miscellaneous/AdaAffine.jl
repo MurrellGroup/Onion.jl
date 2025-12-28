@@ -31,6 +31,5 @@ end
 function ((; f, scale_proj, shift_proj)::AdaAffine)(x, cond)
     γ = scale_proj(cond)
     β = shift_proj(cond)
-    x′ = f isa LazyLayer ? lazy_apply(f, x) : f(x)
-    return @. (1 + γ) * x′ + β
+    return @. (1 + γ) * $fuse(f, x) + β
 end

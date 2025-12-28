@@ -1,5 +1,6 @@
 include("Linear.jl")
 export Linear
+export LinearNoBias
 
 include("BlockLinear.jl")
 export BlockLinear
@@ -17,3 +18,6 @@ export Modulator
 
 include("VirtualWidthNetwork.jl")
 export VirtualWidthNetwork
+
+include("Composed.jl")
+export Composed

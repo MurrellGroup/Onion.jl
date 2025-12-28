@@ -9,13 +9,11 @@ x = randn(Float32, 64, 10, 1)
 y = ln(x)
 ```
 """
-@concrete struct LayerNorm
+@concrete struct LayerNorm <: StatisticalNorm
     w
     b
     eps
 end
-
-@layer LayerNorm
 
 LayerNorm(dim::Int; eps::T=1f-6) where T = LayerNorm(ones(T, dim), zeros(T, dim), eps)
 

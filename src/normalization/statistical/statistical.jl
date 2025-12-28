@@ -1,3 +1,5 @@
+abstract type StatisticalNorm <: Norm end
+
 include("LayerNorm.jl")
 # export LayerNorm
 

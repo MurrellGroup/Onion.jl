@@ -3,6 +3,8 @@
 
 Adaptive Layer Normalization.
 
+See also [`AdaAffine`](@ref).
+
 ```julia
 aln = AdaLN(5, 3)
 h = randn(Float32, 5,10,1)
@@ -10,7 +12,7 @@ cond = randn(Float32, 3,1)
 h = aln(h, cond)
 ```
 """
-@concrete struct AdaLN <: Layer
+@concrete struct AdaLN <: StatisticalNorm
     norm
     shift
     scale  

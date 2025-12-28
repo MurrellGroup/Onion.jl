@@ -3,14 +3,21 @@ using Flux: @layer
 abstract type Layer end
 @layer Layer
 
+function input_size end
+function output_size end
 
-abstract type LazyLayer <: Layer end
 
-function lazy_apply end
+abstract type LayerStyle end
+struct EagerStyle <: LayerStyle end
+struct LazyStyle <: LayerStyle end
 
-function (layer::LazyLayer)(args...; kws...)
-    return Broadcast.materialize(lazy_apply(layer, args...; kws...))
-end
+LayerStyle(::Type{<:Layer}) = EagerStyle()
+
+fuse(layer, args...; kws...) = _fuse(LayerStyle(typeof(layer)), layer, args...; kws...)
+_fuse(::EagerStyle, layer, args...; kws...) = layer(args...; kws...)
+_fuse(::LazyStyle, layer, args...; kws...) = lazy_apply(layer, args...; kws...)
+
+apply(args...; kws...) = Broadcast.materialize(fuse(args...; kws...))
 
 
 const UNICODE_PROPERTY_MAP = (

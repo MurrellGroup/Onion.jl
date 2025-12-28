@@ -7,7 +7,7 @@ Dynamic erf (Derf) layer for point-wise normalization of inputs.
 
 See [Stronger Normalization-Free Transformers](https://arxiv.org/abs/2512.10938) for more details.
 """
-@concrete struct Derf <: LazyLayer
+@concrete struct Derf <: PointWiseNorm
     α; s; γ; β
 end
 
@@ -27,3 +27,8 @@ function Derf(
 end
 
 lazy_apply((; α, s, γ, β)::Derf, x) = @lazy γ * erf(α * x + s) + β
+LayerStyle(::Type{<:Derf}) = LazyStyle()
+
+@views function Base.getindex((; α, s, γ, β)::Derf, i::AbstractVector)
+    Derf(α, s, γ[i], β[i])
+end

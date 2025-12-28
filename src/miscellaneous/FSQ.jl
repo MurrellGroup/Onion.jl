@@ -5,13 +5,11 @@ Finite Scalar Quantization.
 `l` is the number of quantization levels. For a sequence with `d` channels, the codebook size would be `l^d`.
 `chunk_size` is the number of channels that get combined/separated when `chunk`/`unchunk` are called.
 """
-struct FSQ{A<:Integer, B}
+struct FSQ{A<:Integer,B} <: Layer
     l::A
     q::B
     chunk_size::Int
 end
-
-@layer FSQ
 
 function FSQ(l::A, chunk_size::Int) where A
     scal = Int(floor.(l/2))

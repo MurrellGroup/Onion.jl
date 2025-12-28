@@ -5,7 +5,7 @@ Dynamic Tanh (DyT) layer for point-wise normalization of inputs.
 
 See [Transformers without Normalization](https://arxiv.org/abs/2503.10622) for more details.
 """
-struct DyT{T<:AbstractFloat,V<:AbstractVector{T}} <: LazyLayer
+struct DyT{T<:AbstractFloat,V<:AbstractVector{T}} <: PointWiseNorm
     alpha::V   # α
     weight::V  # γ
     bias::V    # β
@@ -24,3 +24,4 @@ function DyT(
 end
 
 lazy_apply((; α, weight, bias)::DyT, x) = @lazy weight * tanh(α * x) + bias
+LayerStyle(::Type{<:DyT}) = LazyStyle()

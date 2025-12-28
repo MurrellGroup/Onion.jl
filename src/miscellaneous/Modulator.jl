@@ -18,11 +18,9 @@ julia> gate(Y, X) |> size
 (64,)
 ```
 """
-@concrete struct Modulator
+@concrete struct Modulator <: Layer
     W; σ; op; shape
 end
-
-@layer Modulator
 
 function Modulator(
     (in, out)::Pair{Int,Int}, σ=sigmoid;

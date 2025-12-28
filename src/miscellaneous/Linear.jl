@@ -11,6 +11,9 @@ See also [`BlockLinear`](@ref).
     weight; bias; σ
 end
 
+input_size(l::Linear) = size(l.weight, 2)
+output_size(l::Linear) = size(l.weight, 1)
+
 function Linear(
     (d1, d2)::Pair{Int,Int}, σ=identity;
     bias::Bool=true, init=Flux.glorot_uniform
@@ -22,9 +25,9 @@ end
 
 # σ.(W * x .+ b)
 function ((; weight, bias, σ)::Linear)(x)
-    x′ = reshape(x, size(x, 1), :)# Keep(), :)
+    x′ = reshape(x, Keep(), :)
     y′ = weight * x′
-    y = reshape(y′, size(y′, 1), size(x)[2:end]...)#Keep(), Split(1, size(x)[2:end]))
+    y = reshape(y′, Keep(), Split(1, size(x)[2:end]))
     NNlib.bias_act!(σ, y, bias)
     return y
 end
@@ -34,4 +37,8 @@ function Base.show(io::IO, (; weight, bias, σ)::Linear)
     σ == identity || print(io, ", $(σ)")
     bias isa Union{Nothing,Bool} && print(io, ", bias=false")
     print(io, ")")
+end
+
+function LinearNoBias(args...; kws...)
+    return Linear(args...; bias=false, kws...)
 end
