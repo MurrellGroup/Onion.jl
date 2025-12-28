@@ -27,12 +27,12 @@ See also [`VirtualWidthNetwork`](@ref) and [`With`](@ref).
 ```jldoctest
 julia> ghc = GeneralizedHyperConnection(3, 2); # hidden width is 1.5x the backbone width 
 
-julia> h = randn(Float32, 12, 10); # hidden state is kept at 12
+julia> h = randn(Float32, 12, 5); # hidden state is kept at 12
 
 julia> layer = Linear(8 => 8); # backbone width is 8
 
 julia> ghc(layer, h) |> size
-(64, 10)
+(12, 5)
 
 julia> ghc(layer, h) == ghc(h) do h
            layer(h)
