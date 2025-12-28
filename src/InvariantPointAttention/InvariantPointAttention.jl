@@ -31,11 +31,12 @@ function InvariantPointAttention(;
 end
 
 function (layer::InvariantPointAttention)(s, z, (R, t))
+    d, h = 3, layer.num_heads
     q, k, v = split_axis(layer.qkv_proj(s), 3; dims=1)
-    q, k, v = rearrange.((q, k, v), einops"(c h) l ... -> c l h ..."; h=layer.num_heads)
+    q, k, v = rearrange.((q, k, v), einops"(c h) l ... -> c l h ..."; h)
     qᵖ, kᵖ = split_axis(layer.qk_point_proj(s), 2; dims=1)
-    qᵖ, kᵖ = rearrange.((qᵖ, kᵖ), einops"(d h p) l ... -> d p l ... h"; h=layer.num_heads, p=layer.num_query_points) .|> as_vectors
-    vᵖ = rearrange(layer.v_point_proj(s), einops"(d h p) l ... -> d p l h ..."; h=layer.num_heads, p=layer.num_point_values) |> as_vectors
+    qᵖ, kᵖ = rearrange.((qᵖ, kᵖ), einops"(d h p) l ... -> d p l ... h"; d, h) .|> as_vectors
+    vᵖ = rearrange(layer.v_point_proj(s), einops"(d h p) l ... -> d p l h ..."; d, h) |> as_vectors
     b = rearrange(layer.bias_proj(z), einops"h k q ... -> k q h ...")
     wC, wL = √(2 / (9 * layer.num_query_points)), 1 / √3
     wC, wL, c = map(x -> ofeltype(x, q), (wC, wL, layer.head_dim))
@@ -49,10 +50,10 @@ function (layer::InvariantPointAttention)(s, z, (R, t))
     o = einsum(a, v, einops"j i h ..., c j h ... -> (c h) i ...")
     Rv, tv = rearrange.((R, t), einops"j ... -> 1 j 1 ...")
     Tvᵖ = as_array(Rv .* vᵖ .+ tv)
-    ō = einsum(a, Tvᵖ, einops"j i ..., d p j ... -> d p i ...", d=3)
+    ō = einsum(a, Tvᵖ, einops"j i ..., d p j ... -> d p i ...")
     ō = as_array(adjoint.(Rv) .* (as_vectors(ō) .- tv))
     ō_flat = rearrange(ō, einops"d p i h ... -> (d h p) i ...")
-    ō_norm = reduce(_norm, ō_flat, einops"(d hp) ... -> hp ...", d=3)
+    ō_norm = reduce(_norm, ō_flat, einops"(d hp) ... -> hp ..."; d)
     s̃ = vcat(õ, o, ō_flat, ō_norm)
     return layer.out_proj(s̃)
 end
