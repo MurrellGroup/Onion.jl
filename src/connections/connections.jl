@@ -5,6 +5,4 @@ export SkipConnection, ResidualConnection
 
 include("hyper.jl")
 export GeneralizedHyperConnection, GHC
-
-include("VirtualWidthNetwork.jl")
 export VirtualWidthNetwork

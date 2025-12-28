@@ -17,8 +17,8 @@ function AdaAffine(
     f, dim::Integer, cond_dim::Integer;
     bias = false, init_zero = false
 )
-    scale_proj = Dense(cond_dim => dim; bias)
-    shift_proj = Dense(cond_dim => dim; bias)
+    scale_proj = Linear(cond_dim => dim; bias)
+    shift_proj = Linear(cond_dim => dim; bias)
     if init_zero
         scale_proj.weight .= 0
         shift_proj.weight .= 0

@@ -20,6 +20,8 @@ to backbone width \$D\$ by projecting down the n segments into m segments,
 - **carries** forward the previous over-width state with a projection
 from n segments to n segments, adding it to the expanded backbone output.
 
+See also [`VirtualWidthNetwork`](@ref) and [`With`](@ref).
+
 # Examples
 
 ```jldoctest
@@ -27,7 +29,7 @@ julia> ghc = GeneralizedHyperConnection(3, 2); # hidden width is 1.5x the backbo
 
 julia> h = randn(Float32, 12, 10); # hidden state is kept at 12
 
-julia> layer = Dense(8 => 8); # backbone width is 8
+julia> layer = Linear(8 => 8); # backbone width is 8
 
 julia> ghc(layer, h) |> size
 (64, 10)
@@ -120,3 +122,23 @@ function ChainRulesCore.rrule(
 
     return h′, ghc_pullback
 end
+
+"""
+    VirtualWidthNetwork(layer, n::Int, m::Int)
+
+Wrap a layer with a [`GeneralizedHyperConnection`](@ref) of size `n` and `m`.
+
+# Examples
+
+```jldoctest
+julia> model = VirtualWidthNetwork(Linear(8 => 8), 3, 2);
+
+julia> x = randn(Float32, 12, 5);
+
+julia> model(x) |> size
+(12, 5)
+```
+
+See: [Virtual Width Networks](https://arxiv.org/abs/2511.11238)
+"""
+VirtualWidthNetwork(layer, n::Int, m::Int) = With(GHC(n, m), layer)

@@ -16,8 +16,8 @@ export unchunk
 include("Modulator.jl")
 export Modulator
 
-include("VirtualWidthNetwork.jl")
-export VirtualWidthNetwork
+include("With.jl")
+export With
 
 include("Composed.jl")
 export Composed
