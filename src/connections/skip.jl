@@ -1,23 +1,23 @@
-abstract type AbstractSkipConnections <: AbstractConnections end
+abstract type AbstractSkipConnection <: AbstractConnection end
 function operator end
 
-function (sc::AbstractSkipConnections)(F, x)
+function (sc::AbstractSkipConnection)(F, x)
     ⊕ = operator(sc)
-    return F(x) .⊕ x
+    return F(x) ⊕ x
 end
 
-function (sc::AbstractSkipConnections)(F, x, args...; kws...)
+function (sc::AbstractSkipConnection)(F, x, args...; kws...)
     sc(x -> F(x, args...; kws...), x)
 end
 
 
-struct SkipConnections{Op} <: AbstractSkipConnections
+struct SkipConnection{Op} <: AbstractSkipConnection
     op::Op
 end
 
-operator(sc::SkipConnections) = sc.op
+operator(sc::SkipConnection) = sc.op
 
 
-struct ResidualConnections <: AbstractSkipConnections end
+struct ResidualConnection <: AbstractSkipConnection end
 
-operator(::ResidualConnections) = (+)
+operator(::ResidualConnection) = (+)

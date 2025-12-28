@@ -3,8 +3,8 @@ using ChainRulesCore
 using NNlib
 
 """
-    GeneralizedHyperConnections(n, m)
-    (ghc::GeneralizedHyperConnections)(layer, h::AbstractArray)
+    GeneralizedHyperConnection(n, m)
+    (ghc::GeneralizedHyperConnection)(layer, h::AbstractArray)
 
 Wrap a sublayer (e.g. attention or FFN) with the static form of
 **Generalized Hyper-Connections (GHC)**.
@@ -23,7 +23,7 @@ from n segments to n segments, adding it to the expanded backbone output.
 # Examples
 
 ```jldoctest
-julia> ghc = GeneralizedHyperConnections(3, 2); # hidden width is 1.5x the backbone width 
+julia> ghc = GeneralizedHyperConnection(3, 2); # hidden width is 1.5x the backbone width 
 
 julia> h = randn(Float32, 12, 10); # hidden state is kept at 12
 
@@ -40,22 +40,22 @@ true
 
 See: [Virtual Width Networks](https://arxiv.org/abs/2511.11238)
 """
-@concrete struct GeneralizedHyperConnections <: AbstractConnections
+@concrete struct GeneralizedHyperConnection <: AbstractConnection
     down; side; up
 end
 
-const GHC = GeneralizedHyperConnections
+const GHC = GeneralizedHyperConnection
 
-function GeneralizedHyperConnections(n, m)
+function GeneralizedHyperConnection(n, m)
     down = Float32[I(m); zeros(n - m, m)]
     side = Float32[I(n);]
     up   = Float32[repeat(I(m), 1, fld(n, m));; I(mod(n, m)); zeros(m - mod(n, m), mod(n, m))]
-    return GeneralizedHyperConnections(down, side, up)
+    return GeneralizedHyperConnection(down, side, up)
 end
 
-(ghc::GeneralizedHyperConnections)(layer) = Base.Fix1(ghc, layer)
+(ghc::GeneralizedHyperConnection)(layer) = Base.Fix1(ghc, layer)
 
-function (ghc::GeneralizedHyperConnections)(layer, h::AbstractArray, ::typeof(einsum))
+function (ghc::GeneralizedHyperConnection)(layer, h::AbstractArray, ::typeof(einsum))
     x  = einsum(h, ghc.down, einops"(d n) ..., n m -> (d m) ...")
     z  = layer(x)
     h′ = einsum(z, ghc.up, einops"(d m) ..., m n -> (d n) ...") +
@@ -63,7 +63,7 @@ function (ghc::GeneralizedHyperConnections)(layer, h::AbstractArray, ::typeof(ei
     return h′
 end
 
-function (ghc::GeneralizedHyperConnections)(layer, h::AbstractArray)
+function (ghc::GeneralizedHyperConnection)(layer, h::AbstractArray)
     (; down, side, up) = ghc
     n, m = size(down)
     H  = rearrange(h, einops"(d n) ... -> d n ..."; n)
@@ -79,7 +79,7 @@ end
 
 function ChainRulesCore.rrule(
     config::RuleConfig{>:HasReverseMode},
-    ghc::GeneralizedHyperConnections,
+    ghc::GeneralizedHyperConnection,
     layer,
     h::AbstractArray
 )
@@ -113,7 +113,7 @@ function ChainRulesCore.rrule(
 
         Δh = rearrange(ΔH, einops"d n ... -> (d n) ...")
 
-        Δghc = Tangent{GeneralizedHyperConnections}(; down=Δdown, side=Δside, up=Δup)
+        Δghc = Tangent{GeneralizedHyperConnection}(; down=Δdown, side=Δside, up=Δup)
         return (Δghc, Δlayer, Δh)
     end
 

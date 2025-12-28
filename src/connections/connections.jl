@@ -1,10 +1,10 @@
-abstract type AbstractConnections <: Layer end
+abstract type AbstractConnection <: Layer end
 
 include("skip.jl")
-export SkipConnections, ResidualConnections
+export SkipConnection, ResidualConnection
 
 include("hyper.jl")
-export GeneralizedHyperConnections
+export GeneralizedHyperConnection
 
 include("VirtualWidthNetwork.jl")
 export VirtualWidthNetwork
