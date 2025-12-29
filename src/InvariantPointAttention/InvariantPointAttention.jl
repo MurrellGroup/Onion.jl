@@ -54,6 +54,6 @@ function (layer::InvariantPointAttention)(s, z, (R, t))
     ō = as_array(adjoint.(Rv) .* (as_vectors(ō) .- tv))
     ō_flat = rearrange(ō, einops"d p i h ... -> (d h p) i ...")
     ō_norm = reduce(_norm, ō_flat, einops"(d hp) ... -> hp ..."; d)
-    s̃ = vcat(õ, o, ō_flat, ō_norm)
-    return layer.out_proj(s̃)
+    s̃ = layer.out_proj(vcat(õ, o, ō_flat, ō_norm))
+    return s̃
 end
