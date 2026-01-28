@@ -3,3 +3,5 @@ export Framemover
 export IPAblock
 export CrossFrameIPA
 export pair_encode
+
+include("FlashIPA.jl")
