@@ -29,6 +29,10 @@ include("structure_module.jl")
 include("esmfold_embed.jl")
 include("folding_trunk.jl")
 
+# GPU dispatch (AnyGPUArray → ONIONop kernels)
+include("gpu_dispatch.jl")
+include("gpu_layers.jl")
+
 # Dispatch hooks (overridden by OnionTile for GPU)
 export layernorm_first_forward, flash_attention_forward, flash_attention_bias_forward
 export rotary_pos_emb_forward, combine_projections_forward
