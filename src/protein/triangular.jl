@@ -201,7 +201,7 @@ function (m::TriangleMultiplicativeUpdate)(z::AbstractArray; mask=nothing)
     x = m.layer_norm_out(x)
     x = m.linear_z(x)
     g_raw = m.linear_g(z_norm)
-    @. x = x * NNlib.sigmoid(g_raw)
+    x = @. x * NNlib.sigmoid(g_raw)
     return x
 end
 

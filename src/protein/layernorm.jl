@@ -60,7 +60,7 @@ function (m::LinearFirst)(x::AbstractArray)
     x2 = reshape(x, in_dim, :)
     y2 = m.weight * x2
     if m.use_bias
-        y2 .+= m.bias
+        y2 = y2 .+ m.bias
     end
     out_shape = (out_dim, size(x)[2:end]...)
     return reshape(y2, out_shape)
