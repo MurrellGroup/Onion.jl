@@ -86,6 +86,43 @@ function (m::ESMMultiheadAttention)(
     q = m.q_proj(query)
     k = m.k_proj(key)
     v = m.v_proj(value)
+
+    # Fast path: 4D flash attention via dispatch hooks (OnionTile overrides for GPU)
+    if !need_head_weights
+        # Reshape to 4D: (C, T, B) → (D, H, T, B) → permute → (D, T, H, B)
+        q4 = permutedims(reshape(q, D, H, T, B), (1, 3, 2, 4))
+        k4 = permutedims(reshape(k, D, H, T, B), (1, 3, 2, 4))
+        v4 = permutedims(reshape(v, D, H, T, B), (1, 3, 2, 4))
+
+        # Rotary embedding via dispatch hook (fused kernel on GPU)
+        if m.rot_emb !== nothing
+            cos, sin = _update_cos_sin!(m.rot_emb, T, k4)
+            q4 = rotary_pos_emb_forward(q4, cos, sin)
+            k4 = rotary_pos_emb_forward(k4, cos, sin)
+        end
+
+        # Flash attention via dispatch hook — scaling folded in
+        if _precomputed_attn_bias !== nothing
+            out4 = flash_attention_bias_forward(q4, k4, v4, _precomputed_attn_bias; scale=m.scaling)
+        elseif key_padding_mask !== nothing
+            # Convert key_padding_mask (B, S) to 4D bias for flash attention
+            s = size(key_padding_mask, 2)
+            mask_col = permutedims(key_padding_mask, (2, 1))
+            pad_bias = ifelse.(mask_col, eltype(q)(-Inf), zero(eltype(q)))
+            pad_bias_4d = reshape(pad_bias, s, 1, 1, B)
+            pad_bias_full = repeat(pad_bias_4d, 1, T, H, 1)
+            out4 = flash_attention_bias_forward(q4, k4, v4, pad_bias_full; scale=m.scaling)
+        else
+            out4 = flash_attention_forward(q4, k4, v4; scale=m.scaling)
+        end
+
+        # Back to (C, T, B): (D, T, H, B) → permute → (D, H, T, B) → reshape
+        attn = reshape(permutedims(out4, (1, 3, 2, 4)), C, T, B)
+        attn = m.out_proj(attn)
+        return attn, nothing
+    end
+
+    # Slow path: batched_mul for head weight extraction
     q = q .* m.scaling
     q = _reshape_heads(q, D, H)
     k = _reshape_heads(k, D, H)
@@ -106,13 +143,10 @@ function (m::ESMMultiheadAttention)(
 
     attn = m.out_proj(attn)
 
-    attn_weights_out = nothing
-    if need_head_weights
-        t, s = size(attn_weights_float, 1), size(attn_weights_float, 2)
-        b = size(query, 3)
-        attn_weights_out = reshape(attn_weights_float, t, s, m.num_heads, b)
-        attn_weights_out = permutedims(attn_weights_out, (4, 3, 1, 2))
-    end
+    t, s = size(attn_weights_float, 1), size(attn_weights_float, 2)
+    b = size(query, 3)
+    attn_weights_out = reshape(attn_weights_float, t, s, m.num_heads, b)
+    attn_weights_out = permutedims(attn_weights_out, (4, 3, 1, 2))
 
     return attn, attn_weights_out
 end

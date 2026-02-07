@@ -1,10 +1,11 @@
 # Dispatch function for OnionTile to override with fused GPU kernel
 rotary_pos_emb_forward(x, cos, sin) = _cpu_rotary_pos_emb(x, cos, sin)
 
-function _cpu_rotary_pos_emb(x::AbstractArray{T,3}, cos::AbstractArray, sin::AbstractArray) where {T}
-    d, seq_len, _ = size(x)
-    cos_view = reshape(cos[:, 1:seq_len], d, seq_len, 1)
-    sin_view = reshape(sin[:, 1:seq_len], d, seq_len, 1)
+function _cpu_rotary_pos_emb(x::AbstractArray, cos::AbstractArray, sin::AbstractArray)
+    d = size(x, 1)
+    seq_len = size(x, 2)
+    cos_view = reshape(cos[:, 1:seq_len], d, seq_len, ntuple(_ -> 1, ndims(x) - 2)...)
+    sin_view = reshape(sin[:, 1:seq_len], d, seq_len, ntuple(_ -> 1, ndims(x) - 2)...)
     return (x .* cos_view) .+ (rotate_half(x) .* sin_view)
 end
 
@@ -24,8 +25,9 @@ function rotate_half(x::AbstractArray)
     d = size(x, 1)
     @assert iseven(d) "Rotary head_dim must be even"
     half = d ÷ 2
-    x1 = view(x, 1:half, :, :)
-    x2 = view(x, (half + 1):d, :, :)
+    trailing = ntuple(_ -> Colon(), ndims(x) - 1)
+    x1 = @view x[1:half, trailing...]
+    x2 = @view x[(half + 1):d, trailing...]
     return vcat(-x2, x1)
 end
 
@@ -47,7 +49,7 @@ function _update_cos_sin!(rot::RotaryEmbedding, seq_len::Int, like::AbstractArra
     return rot.cos_cached::AbstractArray{Float32,2}, rot.sin_cached::AbstractArray{Float32,2}
 end
 
-function apply_rotary_pos_emb(x::AbstractArray{T,3}, cos::AbstractArray, sin::AbstractArray) where {T}
+function apply_rotary_pos_emb(x::AbstractArray, cos::AbstractArray, sin::AbstractArray)
     return rotary_pos_emb_forward(x, cos, sin)
 end
 

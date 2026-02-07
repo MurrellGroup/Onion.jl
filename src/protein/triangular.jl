@@ -58,50 +58,33 @@ function (m::OFMultiheadAttention)(q_x::AbstractArray, kv_x::AbstractArray;
     B = prod(batch_shape)
     n_batch = length(batch_shape)
 
-    q = reshape(q, C, H, Q, batch_shape...)
-    k = reshape(k, C, H, K, batch_shape...)
-    v = reshape(v, C, H, K, batch_shape...)
+    # Reshape to (C, Q/K, H, B) for flash attention dispatch
+    q4 = reshape(permutedims(reshape(q, C, H, Q, batch_shape...), Tuple(vcat(1, 3, 2, collect(4:(3 + n_batch))))), C, Q, H, B)
+    k4 = reshape(permutedims(reshape(k, C, H, K, batch_shape...), Tuple(vcat(1, 3, 2, collect(4:(3 + n_batch))))), C, K, H, B)
+    v4 = reshape(permutedims(reshape(v, C, H, K, batch_shape...), Tuple(vcat(1, 3, 2, collect(4:(3 + n_batch))))), C, K, H, B)
 
-    n = ndims(q)
-    perm = vcat(4:n, 2, 3, 1)
-    q = permutedims(q, perm)
-    k = permutedims(k, perm)
-    v = permutedims(v, perm)
+    attn_scale = 1f0 / sqrt(Float32(C))
 
-    q = q .* (1f0 / sqrt(Float32(C)))
-
-    q_flat = reshape(q, B, H, Q, C)
-    k_flat = reshape(k, B, H, K, C)
-    v_flat = reshape(v, B, H, K, C)
-
-    q3 = reshape(permutedims(q_flat, (3, 4, 1, 2)), Q, C, B * H)
-    k3 = reshape(permutedims(k_flat, (3, 4, 1, 2)), K, C, B * H)
-    v3 = reshape(permutedims(v_flat, (3, 4, 1, 2)), K, C, B * H)
-
-    a = NNlib.batched_mul(q3, permutedims(k3, (2, 1, 3)))
-
-    if !isempty(biases)
-        a = reshape(a, Q, K, batch_shape..., H)
-        a = permutedims(a, (3:(2 + n_batch)..., ndims(a), 1, 2))
+    # Flash attention via dispatch hooks
+    if _attn_bias_flash !== nothing
+        out4 = flash_attention_bias_forward(q4, k4, v4, _attn_bias_flash; scale=attn_scale)
+    elseif !isempty(biases)
+        # Accumulate biases in (batch..., H, Q, K) then convert to (K, Q, H, B)
+        bias_acc = fill!(similar(q4, eltype(q4), batch_shape..., H, Q, K), zero(eltype(q4)))
         for bias in biases
-            a = a .+ bias
+            bias_acc = bias_acc .+ bias
         end
-        n = ndims(a)
-        b = n - 3
-        a = permutedims(a, vcat(b + 2, b + 3, collect(1:b), b + 1))
-        a = reshape(a, Q, K, :)
+        perm_bias = Tuple(vcat(n_batch + 3, n_batch + 2, n_batch + 1, collect(1:n_batch)))
+        bias4 = reshape(permutedims(bias_acc, perm_bias), K, Q, H, B)
+        out4 = flash_attention_bias_forward(q4, k4, v4, bias4; scale=attn_scale)
+    else
+        out4 = flash_attention_forward(q4, k4, v4; scale=attn_scale)
     end
 
-    a = NNlib.softmax(a; dims=2)
-    o = NNlib.batched_mul(a, v3)
-
-    o = reshape(o, Q, C, batch_shape..., H)
-    o = permutedims(o, (3:(2 + n_batch)..., ndims(o), 1, 2))
-
-    b = n_batch
-    perm_out = vcat(b + 3, b + 1, b + 2, collect(1:b))
-    o = permutedims(o, perm_out)
-    o = reshape(o, C * H, Q, batch_shape...)
+    # Output: (C, Q, H, B) → unflatten batch → (C, H, Q, batch...) → (C*H, Q, batch...)
+    out_r = reshape(out4, C, Q, H, batch_shape...)
+    perm_out = Tuple(vcat(1, 3, 2, collect(4:(3 + n_batch))))
+    o = reshape(permutedims(out_r, perm_out), C * H, Q, batch_shape...)
 
     if m.gating
         g = NNlib.sigmoid.(m.linear_g(q_x))
@@ -136,11 +119,18 @@ function (m::TriangleAttention)(x::AbstractArray; mask=nothing, chunk_size=nothi
     end
     x_att = m.layer_norm(x_att)
 
-    triangle_bias = m.linear(x_att)
-    triangle_bias = permutedims(triangle_bias, (3, 1, 4, 2))
-    triangle_bias = reshape(triangle_bias, size(triangle_bias, 1), 1, size(triangle_bias, 2), size(triangle_bias, 3), size(triangle_bias, 4))
+    if mask === nothing
+        # Optimized path: compute bias directly in flash attention format (K, Q, H, B)
+        # Avoids expensive 5D intermediate allocation
+        tb_raw = m.linear(x_att)  # (H, seq_dim, B, batch_dim2)
+        bias_flash = permutedims(tb_raw, (2, 4, 1, 3))  # (K=seq, Q=batch2, H, B)
+        out = m.mha(x_att, x_att; _attn_bias_flash=bias_flash)
+    else
+        # Original path when mask is provided
+        triangle_bias = m.linear(x_att)
+        triangle_bias = permutedims(triangle_bias, (3, 1, 4, 2))
+        triangle_bias = reshape(triangle_bias, size(triangle_bias, 1), 1, size(triangle_bias, 2), size(triangle_bias, 3), size(triangle_bias, 4))
 
-    if mask !== nothing
         if m.starting
             mask_att = permutedims(mask, (2, 3, 1))
         else
@@ -150,10 +140,8 @@ function (m::TriangleAttention)(x::AbstractArray; mask=nothing, chunk_size=nothi
         mask_bias = permutedims(mask_bias, (2, 3, 1))
         mask_bias = reshape(mask_bias, size(mask_bias, 1), size(mask_bias, 2), 1, 1, size(mask_bias, 3))
         biases = [mask_bias, triangle_bias]
-    else
-        biases = [triangle_bias]
+        out = m.mha(x_att, x_att; biases=biases)
     end
-    out = m.mha(x_att, x_att; biases=biases)
 
     if m.starting
         out = permutedims(out, (1, 4, 2, 3))

@@ -69,41 +69,36 @@ function (m::ESMFoldAttention)(x::AbstractArray; mask=nothing, bias=nothing)
     B = size(t, 3)
     t = reshape(t, D, 3, H, L, B)
 
-    t = permutedims(t, (5, 3, 4, 2, 1))
-    q = view(t, :, :, :, 1, :)
-    k = view(t, :, :, :, 2, :)
-    v = view(t, :, :, :, 3, :)
-    q = q .* m.rescale_factor
+    # Extract Q/K/V into 4D flash attention format: (D, L, H, B)
+    q4 = permutedims(@view(t[:, 1, :, :, :]), (1, 3, 2, 4))
+    k4 = permutedims(@view(t[:, 2, :, :, :]), (1, 3, 2, 4))
+    v4 = permutedims(@view(t[:, 3, :, :, :]), (1, 3, 2, 4))
 
-    q3 = permutedims(reshape(q, B * H, L, D), (2, 3, 1))
-    k3 = permutedims(reshape(k, B * H, L, D), (2, 3, 1))
-    v3 = permutedims(reshape(v, B * H, L, D), (2, 3, 1))
-
-    a = NNlib.batched_mul(q3, permutedims(k3, (2, 1, 3)))
-
+    # Build flash attention bias: need (K, Q, H, B) format
+    bias4 = nothing
     if bias !== nothing
-        bias_h = permutedims(bias, (2, 3, 4, 1))
-        b3 = reshape(bias_h, size(bias_h, 1), size(bias_h, 2), :)
-        a = a .+ b3
+        # bias: (H, Q, K, B) → (K, Q, H, B)
+        bias4 = permutedims(bias, (3, 2, 1, 4))
     end
-
     if mask !== nothing
-        mask_b = permutedims(mask, (2, 1))
-        mask_k = reshape(mask_b, B, 1, 1, L)
-        mask_k = repeat(mask_k, 1, H, L, 1)
-        neg_inf = oftype(zero(eltype(a)), -Inf)
-        mask_bias = ifelse.(mask_k .== 1, zero(eltype(a)), neg_inf)
-        mb_perm = permutedims(mask_bias, (3, 4, 1, 2))
-        mb3 = reshape(mb_perm, size(mb_perm, 1), size(mb_perm, 2), :)
-        a = a .+ mb3
+        # mask: (B, L) with 1 for valid positions → -Inf for masked
+        mask_bias = reshape(ifelse.(mask .== 1, zero(eltype(t)), oftype(zero(eltype(t)), -Inf)), L, 1, 1, B)
+        if bias4 !== nothing
+            bias4 = bias4 .+ mask_bias
+        else
+            bias4 = repeat(mask_bias, 1, L, H, 1)
+        end
     end
 
-    a = NNlib.softmax(a; dims=2)
-    o = NNlib.batched_mul(a, v3)
+    # Flash attention via dispatch hook (OnionTile provides GPU kernel)
+    if bias4 !== nothing
+        out4 = flash_attention_bias_forward(q4, k4, v4, bias4; scale=m.rescale_factor)
+    else
+        out4 = flash_attention_forward(q4, k4, v4; scale=m.rescale_factor)
+    end
 
-    o = reshape(o, L, D, B, H)
-    o = permutedims(o, (2, 4, 1, 3))
-    o = reshape(o, D * H, L, B)
+    # Output: (D, L, H, B) → (D, H, L, B) → reshape to (C, L, B)
+    o = reshape(permutedims(out4, (1, 3, 2, 4)), D * H, L, B)
 
     if m.gated
         g = NNlib.sigmoid.(m.g_proj(x))
@@ -230,7 +225,7 @@ function encode_sequence(
     residue_index_offset::Int=512,
     chain_linker::Union{AbstractString,Int}="G"^25,
 )
-    chains = split(seq, ":")
+    chains = Base.split(seq, ":")
     full_seq = chain_linker isa AbstractString ? join(chains, chain_linker) : join(chains, "")
     unk_idx = restype_order_with_x["X"]
     encoded = [get(restype_order_with_x, string(aa), unk_idx) for aa in full_seq]
