@@ -69,23 +69,25 @@ function frames_and_literature_positions_to_atom14_pos(
     atom_mask::AbstractArray,
     lit_positions::AbstractArray,
 )
-    idx = aatype .+ 1
-    g = permutedims(group_idx, (2, 1))
-    group_sel = NNlib.gather(g, idx)
-    group_idx_sel = group_sel
+    group_mask, lit_pos_sel, atom_mask_sel = @ignore_derivatives begin
+        idx = aatype .+ 1
+        g = permutedims(group_idx, (2, 1))
+        group_sel = NNlib.gather(g, idx)
 
-    am = permutedims(atom_mask, (2, 1))
-    mask_sel = NNlib.gather(am, idx)
-    atom_mask_sel = mask_sel
-    atom_mask_sel = reshape(atom_mask_sel, 1, size(atom_mask_sel)...)
+        am = permutedims(atom_mask, (2, 1))
+        mask_sel = NNlib.gather(am, idx)
+        _atom_mask_sel = reshape(mask_sel, 1, size(mask_sel)...)
 
-    lp = permutedims(lit_positions, (2, 3, 1))
-    lp_sel = NNlib.gather(lp, idx)
-    lit_pos_sel = permutedims(lp_sel, (2, 1, 3, 4))
+        lp = permutedims(lit_positions, (2, 3, 1))
+        lp_sel = NNlib.gather(lp, idx)
+        _lit_pos_sel = permutedims(lp_sel, (2, 1, 3, 4))
 
-    group_mask = one_hot_last(group_idx_sel, size(default_frames, 2))
-    group_mask = permutedims(group_mask, (4, 1, 2, 3))
-    group_mask = convert.(eltype(r.trans), group_mask)
+        gm = one_hot_last(group_sel, size(default_frames, 2))
+        gm = permutedims(gm, (4, 1, 2, 3))
+        gm = convert.(eltype(r.trans), gm)
+
+        (gm, _lit_pos_sel, _atom_mask_sel)
+    end
 
     rot = get_rot_mats(r.rots)
     trans = r.trans
