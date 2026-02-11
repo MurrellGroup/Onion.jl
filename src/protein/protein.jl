@@ -83,7 +83,8 @@ export TriangleMultiplicationOutgoing, TriangleMultiplicationIncoming
 export TriangularSelfAttentionBlock
 
 # Structure module
-export StructureModuleConfig, PointProjection, ESMFoldIPA
+export StructureModuleConfig, PointProjection, PointProjectionMultimer, ESMFoldIPA
+export InvariantPointAttention, MultimerInvariantPointAttention
 export BackboneUpdate, StructureModuleTransitionLayer, StructureModuleTransition
 export AngleResnetBlock, AngleResnet, StructureModule
 
