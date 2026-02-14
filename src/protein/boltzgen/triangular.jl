@@ -39,6 +39,7 @@ end
 
 function (layer::MiniTriangularUpdate)(x; mask, use_kernels::Bool=false)
     d = size(x, 1)
+    @assert eltype(x) === eltype(layer.p_in.weight) "MiniTriangularUpdate input eltype $(eltype(x)) must match weight eltype $(eltype(layer.p_in.weight))"
 
     x = layer.norm_in(x)
     x = layer.p_in(x) .* NNlib.sigmoid.(layer.g_in(x))
@@ -46,21 +47,18 @@ function (layer::MiniTriangularUpdate)(x; mask, use_kernels::Bool=false)
     mask_b = reshape(mask, 1, size(mask, 1), size(mask, 2), size(mask, 3))
     x = x .* mask_b
 
-    T = eltype(x)
-    xf = Float32.(x)
     @assert d % 4 == 0
     chunk = d ÷ 4
 
-    a1 = view(xf, 1:chunk, :, :, :)
-    b1 = view(xf, chunk+1:2*chunk, :, :, :)
-    a2 = view(xf, 2*chunk+1:3*chunk, :, :, :)
-    b2 = view(xf, 3*chunk+1:4*chunk, :, :, :)
+    a1 = view(x, 1:chunk, :, :, :)
+    b1 = view(x, chunk+1:2*chunk, :, :, :)
+    a2 = view(x, 2*chunk+1:3*chunk, :, :, :)
+    b2 = view(x, 3*chunk+1:4*chunk, :, :, :)
 
     x1 = combine_projections_forward(a1, b1, true)
     x2 = combine_projections_forward(a2, b2, false)
 
     x = cat(x1, x2; dims=1)
-    x = T.(x)
 
     x = layer.norm_out(x)
     x = layer.p_out(x) .* NNlib.sigmoid.(layer.g_out(x))
@@ -101,6 +99,7 @@ function BGTriangleMultiplicationOutgoing(dim::Int=128)
 end
 
 function (layer::BGTriangleMultiplicationOutgoing)(x; mask, use_kernels::Bool=false)
+    @assert eltype(x) === eltype(layer.p_in.weight) "BGTriangleMultiplicationOutgoing input eltype $(eltype(x)) must match weight eltype $(eltype(layer.p_in.weight))"
     x = layer.norm_in(x)
     x_in = x
     x = layer.p_in(x) .* NNlib.sigmoid.(layer.g_in(x))
@@ -108,14 +107,11 @@ function (layer::BGTriangleMultiplicationOutgoing)(x; mask, use_kernels::Bool=fa
     mask_b = reshape(mask, 1, size(mask, 1), size(mask, 2), size(mask, 3))
     x = x .* mask_b
 
-    T = eltype(x)
-    xf = Float32.(x)
     d = size(x_in, 1)
-    a = view(xf, 1:d, :, :, :)
-    b = view(xf, d+1:2*d, :, :, :)
+    a = view(x, 1:d, :, :, :)
+    b = view(x, d+1:2*d, :, :, :)
 
     x = combine_projections_forward(a, b, true)
-    x = T.(x)
 
     x = layer.p_out(layer.norm_out(x)) .* NNlib.sigmoid.(layer.g_out(x_in))
     return x
@@ -155,6 +151,7 @@ function BGTriangleMultiplicationIncoming(dim::Int=128)
 end
 
 function (layer::BGTriangleMultiplicationIncoming)(x; mask, use_kernels::Bool=false)
+    @assert eltype(x) === eltype(layer.p_in.weight) "BGTriangleMultiplicationIncoming input eltype $(eltype(x)) must match weight eltype $(eltype(layer.p_in.weight))"
     x = layer.norm_in(x)
     x_in = x
     x = layer.p_in(x) .* NNlib.sigmoid.(layer.g_in(x))
@@ -162,14 +159,11 @@ function (layer::BGTriangleMultiplicationIncoming)(x; mask, use_kernels::Bool=fa
     mask_b = reshape(mask, 1, size(mask, 1), size(mask, 2), size(mask, 3))
     x = x .* mask_b
 
-    T = eltype(x)
-    xf = Float32.(x)
     d = size(x_in, 1)
-    a = view(xf, 1:d, :, :, :)
-    b = view(xf, d+1:2*d, :, :, :)
+    a = view(x, 1:d, :, :, :)
+    b = view(x, d+1:2*d, :, :, :)
 
     x = combine_projections_forward(a, b, false)
-    x = T.(x)
 
     x = layer.p_out(layer.norm_out(x)) .* NNlib.sigmoid.(layer.g_out(x_in))
     return x

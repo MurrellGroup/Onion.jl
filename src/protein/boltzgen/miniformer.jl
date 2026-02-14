@@ -116,12 +116,10 @@ function (layer::MiniformerLayer)(s, z, mask, pair_mask; use_kernels::Bool=false
     z = z .+ dropout .* layer.triangular(z; mask=pair_mask, use_kernels=use_kernels)
     z = z .+ layer.transition_z(z)
 
-    s_f = Float32.(s)
-    z_f = Float32.(z)
-    mask_f = Float32.(mask)
+    @assert eltype(s) === eltype(layer.pre_norm_s.w) "MiniformerLayer input eltype $(eltype(s)) must match weight eltype $(eltype(layer.pre_norm_s.w))"
 
-    s_normed = layer.pre_norm_s(s_f)
-    s = s_f .+ layer.attention(s_normed, z_f, mask_f, s_normed)
+    s_normed = layer.pre_norm_s(s)
+    s = s .+ layer.attention(s_normed, z, mask, s_normed)
     s = s .+ layer.transition_s(s)
     s = layer.s_post_norm(s)
 

@@ -80,38 +80,33 @@ function _bg_scaled_dot_product_attention(q, k, v, mask_bias, bias)
     d, n_q, h, b = size(q)
     n_k = size(k, 2)
     T = eltype(q)
+    @assert eltype(k) === T && eltype(v) === T && eltype(bias) === T && eltype(mask_bias) === T "attention input eltypes must match: got q=$(eltype(q)), k=$(eltype(k)), v=$(eltype(v)), bias=$(eltype(bias)), mask=$(eltype(mask_bias))"
 
-    qf = Float32.(q)
-    kf = Float32.(k)
-    vf = Float32.(v)
-    biasf = Float32.(bias)
-    maskf = Float32.(mask_bias)
-
-    q2 = permutedims(qf, (2, 1, 3, 4))
-    k2 = permutedims(kf, (2, 1, 3, 4))
+    q2 = permutedims(q, (2, 1, 3, 4))
+    k2 = permutedims(k, (2, 1, 3, 4))
 
     qbat = reshape(q2, n_q, d, h * b)
     kbat = reshape(k2, n_k, d, h * b)
 
     scores = NNlib.batched_mul(qbat, permutedims(kbat, (2, 1, 3)))
     scores = reshape(scores, n_q, n_k, h, b)
-    scores = scores .* (inv(sqrt(Float32(d))))
+    scores = scores .* (inv(sqrt(T(d))))
 
     scores = permutedims(scores, (3, 1, 2, 4)) # (H, Q, K, B)
-    scores = scores .+ biasf .+ maskf
+    scores = scores .+ bias .+ mask_bias
 
     weights = NNlib.softmax(scores; dims=3)
 
     w2 = permutedims(weights, (2, 3, 1, 4))
     wbat = reshape(w2, n_q, n_k, h * b)
-    v2 = permutedims(vf, (2, 1, 3, 4))
+    v2 = permutedims(v, (2, 1, 3, 4))
     vbat = reshape(v2, n_k, d, h * b)
 
     out = NNlib.batched_mul(wbat, vbat)
     out = reshape(out, n_q, d, h, b)
     out = permutedims(out, (2, 1, 3, 4))
 
-    return T.(out)
+    return out
 end
 
 function (layer::AttentionPairBias)(s, z, mask, k_in; multiplicity::Int=1)

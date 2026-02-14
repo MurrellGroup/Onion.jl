@@ -25,10 +25,10 @@ include("triangular_attention.jl")
 export TriangleAttentionStartingNode, TriangleAttentionEndingNode
 
 include("outer_product_mean.jl")
-export OuterProductMean
+export OuterProductMean, _opm_forward_mapreduce
 
 include("pair_averaging.jl")
-export PairWeightedAveraging
+export PairWeightedAveraging, _pwa_forward_maploop
 
 include("miniformer.jl")
 export MiniformerModule, MiniformerLayer, MiniformerNoSeqModule, MiniformerNoSeqLayer
