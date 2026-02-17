@@ -50,15 +50,17 @@ function _flash_ipa_core(
     V_aug = cat(v, v_pts[1,:,:,:,:], v_pts[2,:,:,:,:], v_pts[3,:,:,:,:]; dims=1)
 
     # Pad to power-of-2 for cuTile/ONIONop tile alignment
+    # Use zeros_like (@ignore_derivatives) so Zygote doesn't try to differentiate
+    # through fill!/similar CUDA memory internals.
     total_pad = D_pad - size(Q_aug, 1)
     if total_pad > 0
-        zp = fill!(similar(s, T, total_pad, H, L, B), zero(T))
+        zp = zeros_like(s, T, total_pad, H, L, B)
         Q_aug = cat(Q_aug, zp; dims=1)
-        K_aug = cat(K_aug, fill!(similar(zp), zero(T)); dims=1)
+        K_aug = cat(K_aug, zeros_like(s, T, total_pad, H, L, B); dims=1)
     end
     v_pad = D_pad - size(V_aug, 1)
     if v_pad > 0
-        V_aug = cat(V_aug, fill!(similar(s, T, v_pad, H, L, B), zero(T)); dims=1)
+        V_aug = cat(V_aug, zeros_like(s, T, v_pad, H, L, B); dims=1)
     end
 
     # Permute to flash attention layout: (D, L, H, B)
@@ -117,12 +119,23 @@ function _flash_ipa_core(
     attn4 = reshape(attn, L, L, H, B)
     z_kq = permutedims(z, (1, 3, 2, 4))       # (C_z, L_k, L_q, B)
     z_3d = reshape(z_kq, C_z, L, L * B)       # (C_z, L_k, L_q*B)
-    pair_out = similar(z, T, C_z, L, H, B)
-    for h in 1:H
-        p_h = permutedims(attn4[:, :, h, :], (2, 1, 3))  # (L_k, L_q, B)
-        p_h3 = reshape(p_h, L, 1, L * B)
-        pair_h = NNlib.batched_mul(z_3d, p_h3)
-        pair_out[:, :, h, :] .= reshape(pair_h, C_z, L, B)
+    if within_gradient(z)
+        # Out-of-place: AD-compatible (cat instead of in-place .= into similar)
+        pair_slices = map(1:H) do h
+            p_h = permutedims(attn4[:, :, h, :], (2, 1, 3))  # (L_k, L_q, B)
+            p_h3 = reshape(p_h, L, 1, L * B)
+            pair_h = NNlib.batched_mul(z_3d, p_h3)
+            reshape(pair_h, C_z, L, 1, B)
+        end
+        pair_out = cat(pair_slices...; dims=3)
+    else
+        pair_out = similar(z, T, C_z, L, H, B)
+        for h in 1:H
+            p_h = permutedims(attn4[:, :, h, :], (2, 1, 3))  # (L_k, L_q, B)
+            p_h3 = reshape(p_h, L, 1, L * B)
+            pair_h = NNlib.batched_mul(z_3d, p_h3)
+            pair_out[:, :, h, :] .= reshape(pair_h, C_z, L, B)
+        end
     end
     o_pair = reshape(permutedims(pair_out, (1,3,2,4)), H*C_z, L, B)
 
