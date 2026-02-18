@@ -1,0 +1,13 @@
+name = "OnionCore"
+uuid = "42a94c36-64b5-4594-9f04-7bc0bc5c1701"
+version = "0.1.0"
+authors = ["AntonOresten <antonoresten@proton.me>"]
+
+[workspace]
+projects = ["test"]
+
+[extensions]
+OnionCoreFluxExt = "Flux"
+
+[weakdeps]
+Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"

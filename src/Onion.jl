@@ -1,42 +1,35 @@
 module Onion
 
-using Base.Broadcast: materialize
+using Republic
 
-using ChainRulesCore
-using ConcreteStructs
-using Einops
-using Flux
-using LinearAlgebra
-using NNlib
-using Rewrap
-using Statistics: mean
+# bring in all public names, and reexport all exported names
+@republic reexport=true using OnionCore
 
-const Maybe{T} = Union{T,Nothing}
+using OnionStyle
 
-include("Utils/Utils.jl")
-using .Utils
-import .Utils: split
-export split_axis
-export glut
-export like, zeros_like, ones_like, falses_like, trues_like
-export watmul, ⨝
-export self_att_padding_mask
-export cross_att_padding_mask
-export causal_mask
-export bf16
+using ConcreteStructs: @concrete
+using ChainRulesCore: @ignore_derivatives
+@republic using NNlib: swish
 
-include("Layer.jl")
-export @concrete
-export @layer
+include("utils/utils.jl")
 
-include("Ops/Ops.jl")
+include("fuse.jl")
+public fuse
 
-include("ipa/ipa.jl")
-include("miscellaneous/miscellaneous.jl")
-include("normalization/normalization.jl")
-include("connections/connections.jl")
-include("convolution/convolution.jl")
-include("positional-encoding/positional-encoding.jl")
-include("transformers/transformers.jl")
+include("Primitives/Primitives.jl")
+@republic using .Primitives
+
+include("backends.jl")
+public DefaultBackend
+public NNopBackend
+public cuTileBackend
+
+include("primitives/primitives.jl")
+
+include("layers/layers.jl")
+
+function __init__()
+    backend!(DefaultBackend())
+end
 
 end

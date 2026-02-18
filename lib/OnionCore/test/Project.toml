@@ -1,0 +1,3 @@
+[deps]
+OnionCore = "42a94c36-64b5-4594-9f04-7bc0bc5c1701"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
