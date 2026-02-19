@@ -12,7 +12,7 @@ apply_pair_bias(a, ::Nothing) = a
 
 apply_causal_mask(a, causal) = causal ? a .+ causal_mask(a) : a
 
-@impl DefaultBackend function attention(
+function attention(::DefaultBackend,
     q::AbstractArray{T},
     k::AbstractArray{T},
     v::AbstractArray{T};

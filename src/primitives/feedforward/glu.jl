@@ -1,6 +1,6 @@
 using ..Onion: swish
 
-@impl DefaultBackend function glu_ffn(
+function glu_ffn(::DefaultBackend,
     x::AbstractMatrix,
     W_up::AbstractMatrix, W_gate::AbstractMatrix, W_down::AbstractMatrix,
     act = swish

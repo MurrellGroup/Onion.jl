@@ -1,10 +1,23 @@
 using Onion: Onion, cuTileBackend, DefaultBackend
-using Onion: Primitive, @impl
+using OnionStyle: @asmatrix
+import ChainRulesCore as CRC
 
-@impl cuTileBackend function (p::Primitive)(args...; kws...)
+function (p::Onion.Primitive)(::cuTileBackend, args...; kws...)
     return p(DefaultBackend(), args...; kws...)
 end
 
-include("attention.jl")
-include("glu.jl")
-include("multihead.jl")
+function (p::Onion.Primitive)(::cuTileBackend, r::Onion.Rules, args...; kws...)
+    return p(cuTileBackend(), args...; kws...)
+end
+
+include("attention/attention.jl")
+
+include("feedforward/multihead.jl")
+
+include("feedforward/swiglu.jl")
+
+include("norm/layer_norm.jl")
+
+include("norm/rms_norm.jl")
+
+include("softmax.jl")

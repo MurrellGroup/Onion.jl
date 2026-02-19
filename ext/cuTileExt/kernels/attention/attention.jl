@@ -99,7 +99,7 @@ function mha_bwd_preprocess(
     inv_l = ifelse.(l .== 0f0, 0f0, 1f0 ./ l)
 
     ōs = ō .* inv_l # TODO just divide by l?
-    ct.store(Ōscaled, (1, i, h, b), ōs)
+    ct.store(Ōscaled, (1, i, h, b), ōs → eltype(Ōscaled))
 
     δ = sum(ōs .* o, dims=1)
     ct.store(Δ, (i, h, b), reshape(δ, (TILE_M,)))
@@ -173,8 +173,8 @@ function mha_bwd(
             s̄ = (p .* (p̄ .- δ)) .* qk_scale
 
             q̄ = ct.load(Q̄, (1, i, h, b), (Dk, TILE_M), allow_tma=false)
-            q̄ = muladd(k → T, s̄ → T, q̄)
-            ct.store(Q̄, (1, i, h, b), q̄)
+            q̄ = muladd(k → T, s̄ → T, q̄ → Float32)
+            ct.store(Q̄, (1, i, h, b), q̄ → eltype(Q̄))
 
             k̄_acc = muladd(q → T, (s̄)ᵀ → T, k̄_acc)
 
@@ -191,7 +191,7 @@ function mha_bwd(
     return
 end
 
-function flash_attention(
+function flash_attention!(O,
     Q, K, V; causal,
     compute = eltype(Q),
     verify = nothing
@@ -204,7 +204,6 @@ function flash_attention(
     @assert Heads_KV == Heads_V
     @assert iszero(Heads % Heads_KV)
 
-    O = similar(Q, Dv, SeqLen_Q, Heads, Batch)
     M = similar(Q, Float32, SeqLen_Q, Heads, Batch)
     L = similar(Q, Float32, SeqLen_Q, Heads, Batch)
 
@@ -234,10 +233,10 @@ function flash_attention(
         key, verify
     )
 
-    return O, M, L
+    return M, L
 end
 
-function ∇flash_attention(
+function ∇flash_attention!(Q̄, K̄, V̄,
     Ō, Q, K, V, O, M, L; causal,
     compute = eltype(Q),
     verify = nothing,
@@ -256,10 +255,10 @@ function ∇flash_attention(
     query_group_size = H ÷ H_KV
     qk_scale = Float32(1 / sqrt(Dk))
     input_pos = Int32(0)
+    Dk_pow2 = nextpow(2, Dk)
+    Dv_pow2 = nextpow(2, Dv)
 
     Ōscaled, Δ = similar(Ō), similar(M)
-    Q̄, K̄, V̄ = similar.((Q, K, V))
-    isone(query_group_size) || fill!.((Q̄, K̄, V̄), 0)
 
     ct.launch(mha_bwd_preprocess,
         (cld(SeqLen_Q, 32), H * B),
@@ -274,7 +273,7 @@ function ∇flash_attention(
         cfg -> H * B,
         cfg -> (
             Q, K, V, Ōscaled, M, Δ,
-            Q̄, K̄, V̄,
+            fill!.((Q̄, K̄, V̄), 0)...,
             qk_scale, input_pos, H,
             Constant(compute),
             Constant(nextpow(2, Dk)),
@@ -283,17 +282,10 @@ function ∇flash_attention(
             Constant(cfg.TILE_N),
             Constant(query_group_size),
             Constant(causal),
-            Constant(iszero(SeqLen_K % TILE_N))
+            Constant(iszero(SeqLen_K % cfg.TILE_N))
         );
         key, verify
     )
 
     return Q̄, K̄, V̄
 end
-
-#=
-verify = () -> let
-    ref = Primitives.attention(Q, K, V; causal)
-    () -> (isapprox(O, ref, rtol=1e-2))
-end
-=#

@@ -20,13 +20,11 @@ public backend, backend!, withbackend
 (p::Primitive)(args...; kws...) =
     p(Rules(), args...; kws...)
 
-# XXX: remove @impl now that backends are structs
-#      to better communicate what's happening
 # XXX: docstrings on @primitive and @impl expressions
 # - docstring of @primitive becomes a spec
 # - docstring of @impl contains details and potential deviations
 # XXX: automatically Base.@constprop :aggressive?
 include("interface.jl")
-public @primitive, @impl
+public @primitive
 
 end

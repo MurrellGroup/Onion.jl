@@ -28,3 +28,12 @@ struct FixPostfix{P<:Postfix,T} <: Postfix
 end
 (f::Postfix)(x) = FixPostfix(f, x)
 postfix((; f, y)::FixPostfix, x) = ((x)f)y
+
+struct LiteralPostfix{T} <: Postfix end
+const i8  = LiteralPostfix{Int8}()
+const i16 = LiteralPostfix{Int16}()
+const i32 = LiteralPostfix{Int32}()
+const u8  = LiteralPostfix{UInt8}()
+const u16 = LiteralPostfix{UInt16}()
+const u32 = LiteralPostfix{UInt32}()
+postfix(::LiteralPostfix{T}, x::Number) where T = T(x)

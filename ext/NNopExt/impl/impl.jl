@@ -1,7 +1,6 @@
-using Onion: Onion, NNopBackend, DefaultBackend
-using Onion: Primitive, @impl
+using Onion: Onion, Primitive, NNopBackend, DefaultBackend
 
-@impl NNopBackend function (p::Primitive)(args...; kws...)
+function (p::Primitive)(::NNopBackend, args...; kws...)
     return p(DefaultBackend(), args...; kws...)
 end
 

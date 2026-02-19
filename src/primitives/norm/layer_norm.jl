@@ -1,10 +1,12 @@
 using Statistics: mean, var
 
-@impl DefaultBackend function layer_norm(
-    x::AbstractArray, w::AbstractVector, b::AbstractVector;
-    eps, dims = 1
+function layer_norm(::DefaultBackend,
+    x::AbstractArray,
+    w::AbstractVector, b::AbstractVector,
+    dims::Int = 1;
+    eps
 )
-    μ = mean(x; dims=1)
-    σ² = var(x; dims=1, mean=μ, corrected=false)
+    μ = mean(x; dims)
+    σ² = var(x; dims, mean=μ, corrected=false)
     (x .- μ) ./ sqrt.(σ² .+ eps) .* w .+ b
 end

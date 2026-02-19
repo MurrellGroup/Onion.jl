@@ -1,7 +1,7 @@
 using Einops: einsum, @einops_str
 using ..Onion: swish
 
-@impl DefaultBackend function multihead_ffn(
+function multihead_ffn(::DefaultBackend,
     Q,     # x
     K⁽ᵍ⁾ᵀ, # W_gate
     K⁽ᵘ⁾ᵀ, # W_up

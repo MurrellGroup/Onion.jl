@@ -7,8 +7,6 @@ Gated Linear Unit with flexible activation function (default: `swish`, making it
     act; up; gate; down
 end
 
-const SwiGLU = StarGLU{swish}
-
 function StarGLU(;
     hidden_size::Int, intermediate_size::Int, hidden_size_out::Int=dim,
     act = Flux.swish,

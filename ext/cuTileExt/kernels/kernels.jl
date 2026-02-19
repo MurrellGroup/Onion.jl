@@ -1,6 +1,4 @@
-using OnionStyle: ᵀ, →
-# XXX: i32 in OnionStyle
-using GPUToolbox: i32
+using OnionStyle: ᵀ, →, i32
 
 using cuTile:
     cuTile as ct,
@@ -25,3 +23,5 @@ include("feedforward/swiglu.jl")
 include("norm/layer_norm.jl")
 
 include("norm/rms_norm.jl")
+
+include("softmax.jl")

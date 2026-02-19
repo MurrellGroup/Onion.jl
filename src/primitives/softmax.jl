@@ -1,5 +1,7 @@
 using NNlib: NNlib
 
-@impl DefaultBackend function softmax(x::AbstractArray, dims::Int)
+function softmax(::DefaultBackend,
+    x::AbstractArray, dims::Int = 1
+)
     return NNlib.softmax(x; dims)
 end
