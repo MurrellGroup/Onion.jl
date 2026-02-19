@@ -1,4 +1,4 @@
-function mhffn_fwd_kernel(
+function mhffn_fwd(
     Q::TileArray3, K::TileArray3, U::TileArray3, V::TileArray3,
     O::TileArray3,
     T::Type,
@@ -32,7 +32,7 @@ function mhffn_fwd_kernel(
     return
 end
 
-function mhffn_bwd_dq_kernel(
+function mhffn_bwd_dq(
     Q::TileArray3, K::TileArray3, U::TileArray3, V::TileArray3,
     Ō::TileArray3, Q̄::TileArray3,
     T::Type,
@@ -77,7 +77,7 @@ function mhffn_bwd_dq_kernel(
     return
 end
 
-function mhffn_bwd_dkuv_kernel(
+function mhffn_bwd_dkuv(
     Q::TileArray3, K::TileArray3, U::TileArray3, V::TileArray3,
     Ō::TileArray3, K̄::TileArray3, Ū::TileArray3, V̄::TileArray3,
     T::Type,
@@ -140,7 +140,7 @@ function multihead_ffn(
 
     key = (eltype(Q), compute, TILE_D)
 
-    autotune_launch(mhf_fwd_kernel,
+    autotune_launch(mhf_fwd,
         CartesianSpace(TILE_L=(32, 64, 128), TILE_I=(32, 64, 128), occupancy=(1, 2, 4)),
         cfg -> (cld(L, cfg.TILE_L), H),
         cfg -> (
@@ -165,7 +165,7 @@ function ∇multihead_ffn(
 
     key = (eltype(Q), compute, TILE_D)
 
-    autotune_launch(mhffn_bwd_dq_kernel,
+    autotune_launch(mhffn_bwd_dq,
         CartesianSpace(TILE_L=(32, 64, 128), TILE_I=(32, 64, 128), occupancy=(1, 2, 4)),
         cfg -> (cld(L, cfg.TILE_L), H),
         cfg -> (
@@ -176,7 +176,7 @@ function ∇multihead_ffn(
         key, verify
     )
 
-    autotune_launch(mhffn_bwd_dkuv_kernel,
+    autotune_launch(mhffn_bwd_dkuv,
         CartesianSpace(TILE_L=(32, 64, 128), TILE_I=(32, 64, 128), occupancy=(1, 2, 4)),
         cfg -> (cld(de, cfg.TILE_I), H),
         cfg -> (

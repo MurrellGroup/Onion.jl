@@ -1,4 +1,4 @@
-@impl cuTileBackend function Primitives.attention(
+@impl cuTileBackend function Onion.attention(
     Q::AbstractArray,
     K::AbstractArray,
     V::AbstractArray;

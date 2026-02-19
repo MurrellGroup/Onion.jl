@@ -1,4 +1,4 @@
-function mha_fwd_kernel(
+function mha_fwd(
     Q::TileArray4, K::TileArray4, V::TileArray4, O::TileArray4,
     M::TileArray3{Float32}, L::TileArray3{Float32},
     qk_scale::Float32,
@@ -78,7 +78,7 @@ function mha_fwd_kernel(
     return
 end
 
-function mha_bwd_preprocess_kernel(
+function mha_bwd_preprocess(
     Ō::TileArray4,
     O::TileArray4,
     Ōscaled::TileArray4,
@@ -107,7 +107,7 @@ function mha_bwd_preprocess_kernel(
     return
 end
 
-function mha_bwd_kernel(
+function mha_bwd(
     Q::TileArray4, K::TileArray4, V::TileArray4,
     Ōscaled::TileArray4,
     M::TileArray3{Float32},
@@ -216,7 +216,7 @@ function flash_attention(
 
     key = (eltype(Q), compute, Dk_pow2, Dv_pow2)
 
-    autotune_launch(mha_fwd_kernel,
+    autotune_launch(mha_fwd,
         CartesianSpace(TILE_M=(32, 64, 128), TILE_N=(32, 64, 128), occupancy=(1, 2, 4)),
         cfg -> (cld(SeqLen_Q, cfg.TILE_M), Heads * Batch),
         cfg -> (
@@ -261,7 +261,7 @@ function ∇flash_attention(
     Q̄, K̄, V̄ = similar.((Q, K, V))
     isone(query_group_size) || fill!.((Q̄, K̄, V̄), 0)
 
-    ct.launch(mha_bwd_preprocess_kernel,
+    ct.launch(mha_bwd_preprocess,
         (cld(SeqLen_Q, 32), H * B),
         Ō, O, Ōscaled, L, Δ,
         H, Constant(Dv), Constant(32)
@@ -269,7 +269,7 @@ function ∇flash_attention(
 
     key = (eltype(Q), compute, Dk_pow2, Dv_pow2)
 
-    autotune_launch(mha_bwd_kernel,
+    autotune_launch(mha_bwd,
         CartesianSpace(TILE_M=(32, 64, 128), TILE_N=(32, 64, 128), occupancy=(1, 2, 4)),
         cfg -> H * B,
         cfg -> (

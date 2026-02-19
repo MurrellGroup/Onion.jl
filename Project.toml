@@ -4,7 +4,7 @@ version = "0.3.0"
 authors = ["murrellb <murrellb@gmail.com> and contributors"]
 
 [workspace]
-projects = ["test", "docs", "lib/OnionCore", "lib/OnionStyle", "lib/OnionTile"]
+projects = ["test", "docs", "lib/OnionCore", "lib/OnionStyle"]
 
 [deps]
 BatchedTransformations = "8ba27c4b-52b5-4b10-bc66-a4fda05aa11b"
@@ -22,6 +22,14 @@ Rewrap = "e37f04ce-ca06-4a96-b09f-ea39bec02b08"
 SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
+[extensions]
+NNopExt = "NNop"
+cuTileExt = "cuTile"
+
+[weakdeps]
+NNop = "eeb6ee5c-f953-4f60-8482-00c4fb7bc198"
+cuTile = "0dea8319-8c4a-4662-a73d-20234d115b9a"
+
 [compat]
 BatchedTransformations = "0.5.7"
 ChainRulesCore = "1.25.2"
@@ -30,6 +38,7 @@ Einops = "0.1.12"
 Flux = "0.16.3"
 LinearAlgebra = "1"
 NNlib = "0.9.27"
+NNop = "0.2.0"
 Random = "1.11.0"
 Republic = "0.0.4"
 Rewrap = "0.1.7"

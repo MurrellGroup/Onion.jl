@@ -21,3 +21,7 @@ include("attention/attention.jl")
 include("feedforward/multihead.jl")
 
 include("feedforward/swiglu.jl")
+
+include("norm/layer_norm.jl")
+
+include("norm/rms_norm.jl")

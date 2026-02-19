@@ -3,11 +3,15 @@ using Einops
 using LinearAlgebra
 
 """
-    ofeltype(v::Number, x::AbstractArray{T}) where T = convert(T, v)
+    ofeltype(v::Number, ::AbstractArray{T}) where T = convert(T, v)
 
 Convert `v` to type `T`.
 """
-ofeltype(v::Number, x::AbstractArray{T}) where T = convert(T, v)
+ofeltype(v::Number, ::AbstractArray{T}) where T = convert(T, v)
+
+macro constprop(expr::Expr)
+    esc(:(Base.@constprop :aggressive $expr))
+end
 
 include("glut.jl")
 export glut

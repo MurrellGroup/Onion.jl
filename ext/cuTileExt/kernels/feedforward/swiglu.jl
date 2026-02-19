@@ -25,7 +25,7 @@ end
 
 # ── Forward ──────────────────────────────────────────────────────────
 
-function swiglu_ffn_fwd_kernel(
+function swiglu_ffn_fwd(
     X::TileMatrix, W_gate::TileMatrix, W_up::TileMatrix, W_down::TileMatrix,
     O::TileMatrix, Gate::TileMatrix, Up::TileMatrix,
     T::Type,
@@ -89,7 +89,7 @@ end
 
 # ── Backward: dX ─────────────────────────────────────────────────────
 
-function swiglu_ffn_bwd_dx_kernel(
+function swiglu_ffn_bwd_dx(
     W_gate::TileMatrix, W_up::TileMatrix, W_down::TileMatrix,
     Gate::TileMatrix, Up::TileMatrix,
     Ō::TileMatrix, X̄::TileMatrix,
@@ -150,7 +150,7 @@ end
 
 # ── Backward: dW_down ────────────────────────────────────────────────
 
-function swiglu_ffn_bwd_dw_down_kernel(
+function swiglu_ffn_bwd_dw_down(
     Gate::TileMatrix, Up::TileMatrix,
     Ō::TileMatrix, W̄_down::TileMatrix,
     T::Type,
@@ -192,7 +192,7 @@ end
 
 # ── Backward: dW_gate, dW_up ─────────────────────────────────────────
 
-function swiglu_ffn_bwd_dw_kernel(
+function swiglu_ffn_bwd_dw(
     X::TileMatrix, W_down::TileMatrix,
     Gate::TileMatrix, Up::TileMatrix,
     Ō::TileMatrix,
@@ -277,7 +277,7 @@ function swiglu_ffn(X, W_gate, W_up, W_down; save = true, compute = eltype(X), v
 
     key = (eltype(X), compute)
 
-    autotune_launch(swiglu_fwd_kernel,
+    autotune_launch(swiglu_fwd,
         CartesianSpace(
             TILE_O=(64, 128), TILE_N=(64, 128),
             TILE_K=(32, 64), TILE_D=(32, 64),
@@ -314,7 +314,7 @@ function ∇swiglu_ffn(X, W_gate, W_up, W_down, Gate, Up, Ō; compute = eltype(X
 
     key = (eltype(X), compute)
 
-    autotune_launch(swiglu_bwd_dx_kernel,
+    autotune_launch(swiglu_bwd_dx,
         CartesianSpace(
             TILE_D=(32, 64), TILE_N=(64, 128),
             TILE_K=(32, 64), TILE_O=(64, 128),
@@ -329,7 +329,7 @@ function ∇swiglu_ffn(X, W_gate, W_up, W_down, Gate, Up, Ō; compute = eltype(X
         key, verify
     )
 
-    autotune_launch(swiglu_bwd_dw_down_kernel,
+    autotune_launch(swiglu_bwd_dw_down,
         CartesianSpace(
             TILE_O=(64, 128), TILE_K=(32, 64),
             TILE_N=(64, 128),
@@ -344,7 +344,7 @@ function ∇swiglu_ffn(X, W_gate, W_up, W_down, Gate, Up, Ō; compute = eltype(X
         key, verify
     )
 
-    autotune_launch(swiglu_bwd_dw_kernel,
+    autotune_launch(swiglu_bwd_dw,
         CartesianSpace(
             TILE_K=(32, 64), TILE_D=(32, 64),
             TILE_N=(64, 128), TILE_O=(64, 128),
