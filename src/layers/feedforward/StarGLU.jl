@@ -27,6 +27,6 @@ function (l::StarGLU)(x::AbstractArray)
         l.up.weight, l.gate.weight, l.down.weight,
         l.act
     )
-    y = reshape(y′, Keep(), Split(.., size(x)[2:end]))
+    y = reshape(y′, Keep(), Split(.., Base.tail(size(x))))
     return y
 end

@@ -1,6 +1,9 @@
 using Onion: Onion, cuTileBackend, DefaultBackend
 using OnionStyle: @asmatrix
-import ChainRulesCore as CRC
+using ChainRulesCore: ChainRulesCore as CRC, NoTangent, unthunk
+import ChainRulesCore: rrule
+
+using Zygote
 
 function (p::Onion.Primitive)(::cuTileBackend, args...; kws...)
     return p(DefaultBackend(), args...; kws...)

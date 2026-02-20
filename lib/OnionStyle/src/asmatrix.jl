@@ -28,7 +28,7 @@ expands to roughly:
 let orig = x
     flat = reshape(orig, Keep(), :)
     result = online_softmax(flat)
-    reshape(result, Keep(), Split(.., size(orig)[2:end]))
+    reshape(result, Keep(), Split(.., Base.tail(size(orig))))
 end
 ```
 """
@@ -80,6 +80,6 @@ macro asmatrix(expr)
         $orig = $(esc(orig_expr))
         $flat = reshape($orig, Keep(), :)
         $result = $new_call
-        reshape($result, Keep(), Split(.., size($orig)[2:end]))
+        reshape($result, Keep(), Split(.., Base.tail(size($orig))))
     end
 end

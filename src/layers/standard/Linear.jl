@@ -26,7 +26,7 @@ Linear((d1, d2)::Pair{Int,Int}; kws...) = Linear(d1, d2; kws...)
 function ((; weight, bias)::Linear)(x)
     x′ = reshape(x, Keep(), :)
     y′ = weight * x′
-    y = reshape(y′, Keep(), Split(.., size(x)[2:end]))
+    y = reshape(y′, Keep(), Split(.., Base.tail(size(x))))
     NNlib.bias_act!(identity, y, @something bias false)
     return y
 end

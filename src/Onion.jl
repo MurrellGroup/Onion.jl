@@ -20,9 +20,9 @@ include("Primitives/Primitives.jl")
 @republic using .Primitives
 
 include("backends.jl")
-public DefaultBackend
-public NNopBackend
-public cuTileBackend
+export DefaultBackend
+export NNopBackend
+export cuTileBackend
 
 include("primitives/primitives.jl")
 
