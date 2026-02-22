@@ -57,7 +57,7 @@ function rrule(
 )
     O, cache = swiglu_ffn(X, Wᵍ, Wᵘ, Wᵈ)
     function glu_ffn_pullback(Ō)
-        X̄, W̄... = ∇swiglu_ffn(CRC.unthunk(Ō), X, Wᵍ, Wᵘ, Wᵈ, cache)
+        X̄, W̄... = ∇swiglu_ffn(unthunk(Ō), X, Wᵍ, Wᵘ, Wᵈ, cache)
         return NoTangent(), NoTangent(), X̄, W̄..., NoTangent()
     end
     return O, glu_ffn_pullback

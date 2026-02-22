@@ -3,7 +3,7 @@ using OnionStyle: @asmatrix
 using ChainRulesCore: ChainRulesCore as CRC, NoTangent, unthunk
 import ChainRulesCore: rrule
 
-using Zygote
+import Zygote
 
 function (p::Onion.Primitive)(::cuTileBackend, args...; kws...)
     return p(DefaultBackend(), args...; kws...)

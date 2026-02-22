@@ -2,6 +2,6 @@ module NNopExt
 
 using NNop
 
-include("impl/impl.jl")
+include("bindings/bindings.jl")
 
 end

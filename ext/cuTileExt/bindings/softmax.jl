@@ -1,4 +1,3 @@
-using Rewrap: Keep, Split, (..)
 import ChainRulesCore as CRC
 
 function Onion.softmax(::cuTileBackend,
@@ -8,14 +7,14 @@ function Onion.softmax(::cuTileBackend,
     return y
 end
 
-function CRC.rrule(
+function rrule(
     ::typeof(Onion.softmax), ::cuTileBackend,
     x::AbstractMatrix
 )
     y = online_softmax(x)
     function softmax_pullback(ȳ)
-        x̄ = ∇online_softmax(CRC.unthunk(ȳ), y)
-        return CRC.NoTangent(), CRC.NoTangent(), x̄
+        x̄ = ∇online_softmax(unthunk(ȳ), y)
+        return NoTangent(), NoTangent(), x̄
     end
     return y, softmax_pullback
 end

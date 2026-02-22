@@ -10,5 +10,6 @@ For `x::AbstractArray{<:Number}`, convert elements of `x` to type `T`.
 """
 function → end
 x → T::Type = T.(x) # TODO: recursively adapt/fmap. see Flux._paramtype
+x::Nothing → T::Type = x
 
 →(T::Type) = Base.Fix2(→, T)

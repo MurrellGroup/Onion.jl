@@ -1,70 +1,81 @@
 function mha_fwd(
     Q::TileArray4, K::TileArray4, V::TileArray4, O::TileArray4,
     M::TileArray3{Float32}, L::TileArray3{Float32},
+    B::Union{Nothing,TileArray4},
+    k_lengths::TileVector{Int32},
+    q_lengths::TileVector{Int32},
     qk_scale::Float32,
     input_pos::Int32,
     H::Int,
-    T::Type,
-    Dk::Int,
-    Dv::Int,
-    TILE_M::Int,
-    TILE_N::Int,
+    Tc::Type, Tacc::Type,
+    Dk::Int, Dv::Int,
+    TILE_M::Int, TILE_N::Int,
     QUERY_GROUP_SIZE::Int,
     CAUSAL::Bool,
-    EVEN_K::Bool,
+    BIAS_HEADS::Int,
+    BIAS_BATCH::Int,
 )
     padding_mode = ct.PaddingMode.Zero
     i, hb = ct.bid(1), ct.bid(2)
     b, h = fldmod1(hb, H)
     hₖ = cld(h, QUERY_GROUP_SIZE)
 
-    qk_scale_log2 = qk_scale * inv(log(2f0))
+    q_len = q_lengths[b]
+    (i - 1i32) * TILE_M >= q_len && return
 
     offs_m = reshape((i - 1i32) * TILE_M .+ (ct.arange((TILE_M,), Int32) .- 1i32) .+ input_pos, (1, TILE_M))
     offs_n_tile = reshape(ct.arange((TILE_N,), Int32) .- 1i32, (TILE_N, 1))
 
     m_i = ct.full((1, TILE_M), -Inf32, Float32)
     l_i = ct.zeros((1, TILE_M), Float32)
-    acc = ct.zeros((Dv, TILE_M), Float32)
+    acc = ct.zeros((Dv, TILE_M), Tacc)
 
     q = ct.load(Q, (1, i, h, b), (Dk, TILE_M); padding_mode)
 
+    k_len = k_lengths[b]
     m_end = input_pos + i * TILE_M
-    k_seqlen = size(K, 2)
 
     if CAUSAL
-        mask_start = fld(input_pos + (i - 1i32) * TILE_M, TILE_N)
-        mask_start = min(mask_start, fld(k_seqlen, TILE_N))
-        kv_tiles = cld(min(Int32(m_end), k_seqlen), TILE_N)
+        mask_start = min(fld(input_pos + (i - 1i32) * TILE_M, TILE_N), fld(k_len, TILE_N))
+        kv_tiles = cld(min(Int32(m_end), k_len), TILE_N)
     else
-        kv_tiles = cld(k_seqlen, TILE_N)
-        mask_start = fld(k_seqlen, TILE_N)
+        mask_start = fld(k_len, TILE_N)
+        kv_tiles = cld(k_len, TILE_N)
+    end
+
+    if B isa TileArray
+        hᵇ = mod1(h, BIAS_HEADS)
+        bᵇ = mod1(b, BIAS_BATCH)
     end
 
     j = 1i32
     while j <= kv_tiles
         k = ct.load(K, (1, j, hₖ, b), (Dk, TILE_N); padding_mode, latency=2)
 
-        s = muladd(transpose(k) → T, q → T, ct.zeros((TILE_N, TILE_M), Float32))
+        s = muladd((k)ᵀ → Tc, q → Tc, ct.zeros((TILE_N, TILE_M), Tacc))
+        s = s * Tacc(qk_scale)
 
-        if (CAUSAL || !EVEN_K) && j > mask_start
-            offs_n = (j - 1i32) * TILE_N .+ offs_n_tile
-            mask = ct.full((TILE_N, TILE_M), true, Bool)
-            EVEN_K || (mask = mask .& (offs_n .< k_seqlen))
-            CAUSAL && (mask = mask .& (offs_m .>= offs_n))
-            s = ifelse.(mask, s, -Inf32)
+        if B isa TileArray
+            bias = ct.load(B, (j, i, hᵇ, bᵇ), (TILE_N, TILE_M))
+            s = s .+ bias → Tacc
         end
 
-        m_ij = max.(m_i, maximum(s, dims=1) * qk_scale_log2)
-        p = exp2.(s .* qk_scale_log2 .- m_ij)
-        l_ij = sum(p, dims=1)
+        if j > mask_start
+            offs_n = (j - 1i32) * TILE_N .+ offs_n_tile
+            mask = offs_n .< k_len
+            CAUSAL && (mask = mask .& (offs_m .>= offs_n))
+            s = ifelse.(mask, s, Tacc(-Inf32))
+        end
 
-        alpha = exp2.(m_i .- m_ij)
+        m_ij = max.(m_i, maximum(s, dims=1))
+        p = exp.(s .- m_ij)
+        l_ij = sum(p, dims=1)
+        alpha = exp.(m_i .- m_ij)
         l_i = l_i .* alpha .+ l_ij
-        acc = acc .* alpha
+        acc = acc .* Tacc.(alpha)
 
         v = ct.load(V, (1, j, hₖ, b), (Dv, TILE_N); padding_mode, latency=4)
-        acc = muladd(v → T, p → T, acc)
+        acc = muladd(v → Tc, p → Tc, acc)
 
         m_i = m_ij
         j += 1i32
@@ -72,7 +83,7 @@ function mha_fwd(
 
     o = acc ./ l_i
     ct.store(O, (1, i, h, b), o → eltype(O))
-    ct.store(M, (i, h, b), reshape(m_i, (TILE_M,)) .* log(2f0))
+    ct.store(M, (i, h, b), reshape(m_i, (TILE_M,)))
     ct.store(L, (i, h, b), reshape(l_i, (TILE_M,)))
 
     return
@@ -81,27 +92,28 @@ end
 function mha_bwd_preprocess(
     Ō::TileArray4,
     O::TileArray4,
-    Ōscaled::TileArray4,
+    Ō′::TileArray4,
     L::TileArray3{Float32},
     Δ::TileArray3{Float32},
+    q_lengths::TileVector{Int32},
     H::Int, Dv::Int, TILE_M::Int
 )
     padding_mode = ct.PaddingMode.Zero
     i, hb = ct.bid(1), ct.bid(2)
     b, h = cld(hb, H), mod1(hb, H)
 
+    q_len = q_lengths[b]
+    (i - 1i32) * TILE_M >= q_len && return
+
     ō = ct.load(Ō, (1, i, h, b), (Dv, TILE_M); padding_mode)
     o  = ct.load(O, (1, i, h, b), (Dv, TILE_M); padding_mode)
 
     l = reshape(ct.load(L, (i, h, b), (TILE_M,)), (1, TILE_M))
 
-    # optional safety if l can be 0 (masked rows / OOB):
-    inv_l = ifelse.(l .== 0f0, 0f0, 1f0 ./ l)
+    ō′ = ō .* ifelse.(l .== 0f0, 0f0, 1f0 ./ l)
+    ct.store(Ō′, (1, i, h, b), ō′ → eltype(Ō′))
 
-    ōs = ō .* inv_l # TODO just divide by l?
-    ct.store(Ōscaled, (1, i, h, b), ōs → eltype(Ōscaled))
-
-    δ = sum(ōs .* o, dims=1)
+    δ = sum(ō′ .* o, dims=1)
     ct.store(Δ, (i, h, b), reshape(δ, (TILE_M,)))
 
     return
@@ -109,74 +121,99 @@ end
 
 function mha_bwd(
     Q::TileArray4, K::TileArray4, V::TileArray4,
-    Ōscaled::TileArray4,
+    Ō′::TileArray4,
     M::TileArray3{Float32},
     Δ::TileArray3{Float32},
     Q̄::TileArray4, K̄::TileArray4, V̄::TileArray4,
+    B::Union{Nothing,TileArray4},
+    B̄::Union{Nothing,TileArray4},
+    k_lengths::TileVector{Int32},
+    q_lengths::TileVector{Int32},
     qk_scale::Float32,
     input_pos::Integer,
     H::Integer,
-    T::Type,
+    Tc::Type, Tacc::Type,
     Dk::Int,
     Dv::Int,
     TILE_M::Int,
     TILE_N::Int,
     QUERY_GROUP_SIZE::Int,
     CAUSAL::Bool,
-    EVEN_K::Bool,
+    BIAS_HEADS::Int,
+    BIAS_BATCH::Int,
+    BIAS_ATOMIC::Bool,
 )
     padding_mode = ct.PaddingMode.Zero
     hb = ct.bid(1)
     b, h = fldmod1(hb, H)
     hₖ = cld(h, QUERY_GROUP_SIZE)
 
-    q_seqlen, k_seqlen = size(Q, 2), size(K, 2)
-    q_tiles = cld(q_seqlen, TILE_M)
-    kv_tiles = cld(k_seqlen, TILE_N)
+    k_len = k_lengths[b]
+    q_len = q_lengths[b]
+
+    q_tiles = cld(q_len, TILE_M)
+    kv_tiles = cld(k_len, TILE_N)
 
     offs_n_base = reshape(ct.arange((TILE_N,), Int32) .- 1i32, (TILE_N, 1))
+
+    if B isa TileArray
+        hᵇ = mod1(h, BIAS_HEADS)
+        bᵇ = mod1(b, BIAS_BATCH)
+    end
 
     j = 1i32
     while j <= kv_tiles
         k = ct.load(K, (1, j, hₖ, b), (Dk, TILE_N); padding_mode)
         v = ct.load(V, (1, j, hₖ, b), (Dv, TILE_N); padding_mode)
 
-        k̄_acc = ct.zeros((Dk, TILE_N), Float32)
-        v̄_acc = ct.zeros((Dv, TILE_N), Float32)
+        k̄_acc = ct.zeros((Dk, TILE_N), Tacc)
+        v̄_acc = ct.zeros((Dv, TILE_N), Tacc)
 
         offs_n = (j - 1i32) * TILE_N .+ offs_n_base
+        pad_mask_needed = j > fld(k_len, TILE_N)
 
         i = 1i32
         while i <= q_tiles
             q = ct.load(Q, (1, i, h, b), (Dk, TILE_M); padding_mode, allow_tma=false)
-            ō = ct.load(Ōscaled, (1, i, h, b), (Dv, TILE_M); padding_mode, allow_tma=false)
+            ō = ct.load(Ō′, (1, i, h, b), (Dv, TILE_M); padding_mode, allow_tma=false)
 
             m = reshape(ct.load(M, (i, h, b), (TILE_M,), latency=1), (1, TILE_M))
             δ = reshape(ct.load(Δ, (i, h, b), (TILE_M,), latency=1), (1, TILE_M))
 
-            s = muladd((k)ᵀ → T, q → T, ct.zeros((TILE_N, TILE_M), Float32))
-            s = s .* qk_scale
+            s = muladd((k)ᵀ → Tc, q → Tc, ct.zeros((TILE_N, TILE_M), Tacc))
+            s = s * Tacc(qk_scale)
 
-            if CAUSAL || !EVEN_K
-                offs_m = reshape((i - 1i32) * TILE_M .+ (ct.arange((TILE_M,), Int32) .- 1i32) .+ input_pos, (1, TILE_M))
-                mask = ct.full((TILE_N, TILE_M), true, Bool)
-                EVEN_K || (mask = mask .& (offs_n .< k_seqlen))
-                CAUSAL && (mask = mask .& (offs_m .>= offs_n))
-                s = ifelse.(mask, s, -Inf32, Float32)
+            if B isa TileArray
+                pair = ct.load(B, (j, i, hᵇ, bᵇ), (TILE_N, TILE_M))
+                s = s .+ pair → Tacc
             end
 
-            p = exp.(s .- m)
-            v̄_acc = muladd(ō → T, (p)ᵀ → T, v̄_acc)
+            if CAUSAL || pad_mask_needed
+                offs_m = reshape((i - 1i32) * TILE_M .+ (ct.arange((TILE_M,), Int32) .- 1i32) .+ input_pos, (1, TILE_M))
+                mask = offs_n .< k_len
+                CAUSAL && (mask = mask .& (offs_m .>= offs_n))
+                s = ifelse.(mask, s, Tacc(-Inf32))
+            end
 
-            p̄ = muladd((v)ᵀ → T, ō → T, ct.zeros((TILE_N, TILE_M), Float32))
+            p = exp.(s .- Tacc.(m))
+            v̄_acc = muladd(ō → Tc, (p)ᵀ → Tc, v̄_acc)
 
-            s̄ = (p .* (p̄ .- δ)) .* qk_scale
+            p̄ = muladd((v)ᵀ → Tc, ō → Tc, ct.zeros((TILE_N, TILE_M), Tacc))
+
+            ds = p .* (p̄ .- Tacc.(δ))
+
+            if B̄ isa TileArray
+                bias_store = BIAS_ATOMIC ? ct.atomic_add : ct.store
+                bias_store(B̄, (j, i, hᵇ, bᵇ), ds → eltype(B̄))
+            end
+
+            s̄ = ds * Tacc(qk_scale)
 
             q̄ = ct.load(Q̄, (1, i, h, b), (Dk, TILE_M), allow_tma=false)
-            q̄ = muladd(k → T, s̄ → T, q̄ → Float32)
+            q̄ = muladd(k → Tc, s̄ → Tc, q̄ → Tacc)
             ct.store(Q̄, (1, i, h, b), q̄ → eltype(Q̄))
 
-            k̄_acc = muladd(q → T, (s̄)ᵀ → T, k̄_acc)
+            k̄_acc = muladd(q → Tc, (s̄)ᵀ → Tc, k̄_acc)
 
             i += 1i32
         end
@@ -187,13 +224,17 @@ function mha_bwd(
 
         j += 1i32
     end
-    
+
     return
 end
 
 function flash_attention!(O,
-    Q, K, V; causal,
-    compute = eltype(Q),
+    Q, K, V, B;
+    causal,
+    k_lengths = nothing,
+    q_lengths = nothing,
+    tensorcore = tensorcore_type(eltype(Q)),
+    accumulate = accumulate_type(tensorcore),
     verify = nothing
 )
     Dq, SeqLen_Q, Heads, Batch = size(Q)
@@ -207,28 +248,44 @@ function flash_attention!(O,
     M = similar(Q, Float32, SeqLen_Q, Heads, Batch)
     L = similar(Q, Float32, SeqLen_Q, Heads, Batch)
 
+    if isnothing(k_lengths)
+        k_lengths = fill!(similar(Q, Int32, Batch), SeqLen_K)
+    end
+    if isnothing(q_lengths)
+        q_lengths = fill!(similar(Q, Int32, Batch), SeqLen_Q)
+    end
+
     query_group_size = Heads ÷ Heads_KV
     qk_scale = Float32(1 / sqrt(Dk))
     input_pos = Int32(0)
     Dk_pow2 = nextpow(2, Dk)
     Dv_pow2 = nextpow(2, Dv)
 
-    key = (eltype(Q), compute, Dk_pow2, Dv_pow2)
+    bias_heads = isnothing(B) ? 0 : size(B, 3)
+    bias_batch = isnothing(B) ? 0 : size(B, 4)
+
+    key = (eltype(Q), tensorcore, accumulate,
+        Dk_pow2, Dv_pow2, nextpow.(4, (SeqLen_Q, SeqLen_K)),
+        !isnothing(B))
 
     autotune_launch(mha_fwd,
-        CartesianSpace(TILE_M=(32, 64, 128), TILE_N=(32, 64, 128), occupancy=(1, 2, 4)),
+        CartesianSpace(
+            TILE_M=(32, 64, 128, 256), TILE_N=(32, 64, 128, 256),
+            occupancy=(1, 2, 4, 8)
+        ),
         cfg -> (cld(SeqLen_Q, cfg.TILE_M), Heads * Batch),
         cfg -> (
-            Q, K, V, O, M, L,
+            Q, K, V, O, M, L, B, k_lengths, q_lengths,
             qk_scale, input_pos, Heads,
-            Constant(compute),
+            Constant(tensorcore), Constant(accumulate),
             Constant(Dk_pow2),
             Constant(Dv_pow2),
             Constant(cfg.TILE_M),
             Constant(cfg.TILE_N),
             Constant(query_group_size),
             Constant(causal),
-            Constant(iszero(SeqLen_K % cfg.TILE_N))
+            Constant(bias_heads),
+            Constant(bias_batch),
         );
         key, verify
     )
@@ -236,56 +293,79 @@ function flash_attention!(O,
     return M, L
 end
 
-function ∇flash_attention!(Q̄, K̄, V̄,
-    Ō, Q, K, V, O, M, L; causal,
-    compute = eltype(Q),
+function ∇flash_attention!(
+    Q̄, K̄, V̄, B̄, Ō,
+    Q, K, V, B, O,
+    M, L;
+    causal,
+    k_lengths = nothing,
+    q_lengths = nothing,
+    tensorcore = tensorcore_type(eltype(Q)),
+    accumulate = accumulate_type(tensorcore),
     verify = nothing,
 )
-    Dk, SeqLen_Q, H, B = size(Q)
-    Dk_K, SeqLen_K, H_KV, B_K = size(K)
-    Dv, SeqLen_V, H_V, B_V = size(V)
-    @assert Dk == Dk_K
+    Dq, SeqLen_Q, Heads, Batch = size(Q)
+    Dk, SeqLen_K, Heads_KV, Batch_K = size(K)
+    Dv, SeqLen_V, Heads_V, Batch_V = size(V)
+    @assert Dq == Dk
     @assert SeqLen_K == SeqLen_V
-    @assert H_KV == H_V
-    @assert B == B_K == B_V
+    @assert Heads_KV == Heads_V
+    @assert Batch == Batch_K == Batch_V
     @assert size(O, 1) == Dv
-    @assert size(Ō, 1) == Dv
-    @assert iszero(H % H_KV)
-    
-    query_group_size = H ÷ H_KV
+    @assert size(Ō, 1) == Dv
+    @assert iszero(Heads % Heads_KV)
+
+    k_lengths = @something k_lengths fill!(similar(Q, Int32, Batch), SeqLen_K)
+    q_lengths = @something q_lengths fill!(similar(Q, Int32, Batch), SeqLen_Q)
+
+    query_group_size = Heads ÷ Heads_KV
     qk_scale = Float32(1 / sqrt(Dk))
     input_pos = Int32(0)
     Dk_pow2 = nextpow(2, Dk)
     Dv_pow2 = nextpow(2, Dv)
 
-    Ōscaled, Δ = similar(Ō), similar(M)
+    bias_heads = isnothing(B) ? 0 : size(B, 3)
+    bias_batch = isnothing(B) ? 0 : size(B, 4)
+    bias_atomic = !isnothing(B) && (bias_heads < Heads || bias_batch < Batch)
+
+    Ō′, Δ = similar(Ō), similar(M)
 
     ct.launch(mha_bwd_preprocess,
-        (cld(SeqLen_Q, 32), H * B),
-        Ō, O, Ōscaled, L, Δ,
-        H, Constant(Dv), Constant(32)
+        (cld(SeqLen_Q, 32), Heads * Batch),
+        Ō, O, Ō′, L, Δ, q_lengths,
+        Heads, Constant(Dv), Constant(32)
     )
 
-    key = (eltype(Q), compute, Dk_pow2, Dv_pow2)
+    key = (eltype(Q), tensorcore, accumulate,
+        Dk_pow2, Dv_pow2, nextpow.(4, (SeqLen_Q, SeqLen_K)),
+        !isnothing(B))
 
     autotune_launch(mha_bwd,
-        CartesianSpace(TILE_M=(32, 64, 128), TILE_N=(32, 64, 128), occupancy=(1, 2, 4)),
-        cfg -> H * B,
+        CartesianSpace(
+            TILE_M=(32, 64, 128, 256), TILE_N=(32, 64, 128, 256),
+            occupancy=(1, 2, 4, 8)
+        ),
+        cfg -> Heads * Batch,
         cfg -> (
-            Q, K, V, Ōscaled, M, Δ,
+            Q, K, V, Ō′, M, Δ,
             fill!.((Q̄, K̄, V̄), 0)...,
-            qk_scale, input_pos, H,
-            Constant(compute),
+            B,
+            isnothing(B̄) ? B̄ : fill!(B̄, 0),
+            k_lengths, q_lengths,
+            qk_scale, input_pos, Heads,
+            Constant(tensorcore), Constant(accumulate),
             Constant(nextpow(2, Dk)),
             Constant(nextpow(2, Dv)),
             Constant(cfg.TILE_M),
             Constant(cfg.TILE_N),
             Constant(query_group_size),
             Constant(causal),
-            Constant(iszero(SeqLen_K % cfg.TILE_N))
+            Constant(bias_heads),
+            Constant(bias_batch),
+            Constant(bias_atomic),
         );
         key, verify
     )
 
-    return Q̄, K̄, V̄
+    return nothing
 end

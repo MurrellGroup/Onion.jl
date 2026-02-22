@@ -129,13 +129,11 @@ function mhffn_bwd_dkuv(
     return
 end
 
-function multihead_ffn(
+function multihead_ffn!(O,
     Q, K, U, V;
     compute = eltype(Q),
     verify = nothing
 )
-    O = similar(Q)
-
     TILE_D, H, L = size(Q)
 
     key = (eltype(Q), compute, TILE_D)
@@ -151,16 +149,14 @@ function multihead_ffn(
         key, verify
     )
 
-    return O
+    return ()
 end
 
-function ∇multihead_ffn(
-    Q, K, U, V, Ō;
+function ∇multihead_ffn!(Q̄, K̄, Ū, V̄,
+    Ō, Q, K, U, V;
     compute = eltype(Q),
     verify = nothing
 )
-    Q̄, K̄, Ū, V̄ = similar(Q), similar(K), similar(U), similar(V)
-
     TILE_D, H, L = size(Q)
 
     key = (eltype(Q), compute, TILE_D)
@@ -187,7 +183,7 @@ function ∇multihead_ffn(
         key, verify
     )
 
-    return Q̄, K̄, Ū, V̄
+    return nothing
 end
 
 

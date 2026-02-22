@@ -20,9 +20,6 @@ public backend, backend!, withbackend
 (p::Primitive)(args...; kws...) =
     p(Rules(), args...; kws...)
 
-# XXX: docstrings on @primitive and @impl expressions
-# - docstring of @primitive becomes a spec
-# - docstring of @impl contains details and potential deviations
 # XXX: automatically Base.@constprop :aggressive?
 include("interface.jl")
 public @primitive

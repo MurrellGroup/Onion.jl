@@ -6,14 +6,10 @@ Each primitive is a callable singleton (`<: Primitive <: Function`) that dispatc
 
 ## Declaring and implementing primitives
 
-`@primitive` declares a primitive. `@impl` defines an implementation for a backend:
+`@primitive` declares a primitive:
 
 ```julia
 @primitive rms_norm
-
-@impl DefaultBackend function rms_norm(x::AbstractArray; kws...)
-    # default implementation
-end
 ```
 
 Backends form a type hierarchy — implementations are inherited by subtypes:
@@ -83,7 +79,7 @@ Define a backend type (in OnionCore's hierarchy) and provide implementations via
 abstract type TileBackend <: DefaultBackend end
 
 # In OnionTileOnionExt:
-@impl TileBackend function Onion.Primitives.attention(q, k, v; causal)
+function Onion.attention(::TileBackend, q, k, v; causal)
     OnionTile.mha(q, k, v; causal)
 end
 ```
