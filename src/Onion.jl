@@ -11,6 +11,8 @@ using ConcreteStructs: @concrete
 using ChainRulesCore: @ignore_derivatives
 @republic using NNlib: swish
 
+using Flux: Flux
+
 include("utils/utils.jl")
 
 include("fuse.jl")

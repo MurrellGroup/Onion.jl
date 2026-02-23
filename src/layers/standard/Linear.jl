@@ -15,12 +15,12 @@ function Linear(;
     in_size::Int, out_size::Int,
     bias::Bool=true, init=Flux.glorot_uniform
 )
-    W = init(d2, d1)
-    b = bias ? zeros_like(W, d2) : false
+    W = init(out_size, in_size)
+    b = bias ? zeros_like(W, in_size) : false
     return Linear(W, b)
 end
 
-Linear((d1, d2)::Pair{Int,Int}; kws...) = Linear(d1, d2; kws...)
+Linear((d1, d2)::Pair{Int,Int}; kws...) = Linear(; in_size=d1, out_size=d2, kws...)
 
 # σ.(W * x .+ b)
 function ((; weight, bias)::Linear)(x)

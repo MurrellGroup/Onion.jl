@@ -21,7 +21,7 @@ function rrule(
     ::typeof(Onion.multihead_ffn), ::cuTileBackend,
     Q::AbstractMatrix,
     K::AbstractMatrix, U::AbstractMatrix, V::AbstractMatrix,
-    ::typeof(swish);
+    ::typeof(Onion.swish);
     kws...
 )
     O = multihead_ffn(Q, K, U, V; kws...)
