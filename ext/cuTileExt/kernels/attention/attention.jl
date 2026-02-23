@@ -1,7 +1,7 @@
 function mha_fwd(
     Q::TileArray4, K::TileArray4, V::TileArray4, O::TileArray4,
-    M::TileArray3{Float32}, L::TileArray3{Float32},
-    B::Union{Nothing,TileArray4},
+    M::Optional{TileArray3{Float32}}, L::Optional{TileArray3{Float32}},
+    B::Optional{TileArray4},
     k_lengths::TileVector{Int32},
     q_lengths::TileVector{Int32},
     qk_scale::Float32,
@@ -83,8 +83,8 @@ function mha_fwd(
 
     o = acc ./ l_i
     ct.store(O, (1, i, h, b), o → eltype(O))
-    ct.store(M, (i, h, b), reshape(m_i, (TILE_M,)))
-    ct.store(L, (i, h, b), reshape(l_i, (TILE_M,)))
+    isnothing(M) || ct.store(M, (i, h, b), reshape(m_i, (TILE_M,)))
+    isnothing(L) || ct.store(L, (i, h, b), reshape(l_i, (TILE_M,)))
 
     return
 end
@@ -125,18 +125,16 @@ function mha_bwd(
     M::TileArray3{Float32},
     Δ::TileArray3{Float32},
     Q̄::TileArray4, K̄::TileArray4, V̄::TileArray4,
-    B::Union{Nothing,TileArray4},
-    B̄::Union{Nothing,TileArray4},
+    B::Optional{TileArray4},
+    B̄::Optional{TileArray4},
     k_lengths::TileVector{Int32},
     q_lengths::TileVector{Int32},
     qk_scale::Float32,
     input_pos::Integer,
     H::Integer,
     Tc::Type, Tacc::Type,
-    Dk::Int,
-    Dv::Int,
-    TILE_M::Int,
-    TILE_N::Int,
+    Dk::Int, Dv::Int,
+    TILE_M::Int, TILE_N::Int,
     QUERY_GROUP_SIZE::Int,
     CAUSAL::Bool,
     BIAS_HEADS::Int,
