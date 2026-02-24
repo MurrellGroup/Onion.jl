@@ -4,8 +4,8 @@
         in_dim = 5
         out_dim = 7
 
-        block_dense = BlockLinear(in_dim => out_dim, 1, sigmoid)
-        dense = Dense(in_dim => out_dim, sigmoid)
+        block_dense = BlockLinear(in_dim => out_dim, 1)
+        dense = Dense(in_dim => out_dim)
         dense.weight .= block_dense.weight
 
         x = rand(Float32, in_dim)
@@ -20,8 +20,8 @@
             in_dim = s1 * k
             out_dim = s2 * k
 
-            dense = Dense(in_dim => out_dim, sigmoid)
-            block_dense = BlockLinear(in_dim => out_dim, k, sigmoid)
+            dense = Dense(in_dim => out_dim)
+            block_dense = BlockLinear(in_dim => out_dim, k)
 
             dense.weight .= false
             for i in 1:k

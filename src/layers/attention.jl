@@ -52,7 +52,7 @@ function Attention(
     wo = Linear(n_heads * head_dim => in_dim, bias=false)
     wo.weight .*= out_init_scale
     return Attention(wq, wk, wv, wo, q_norm, k_norm, g1_gate,
-        head_dim, head_dim, n_heads, n_kv_heads)
+        in_dim, head_dim, n_heads, n_kv_heads)
 end
 
 function (layer::Attention)(

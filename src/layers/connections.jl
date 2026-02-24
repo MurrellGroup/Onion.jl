@@ -87,7 +87,7 @@ end
 
 (ghc::GeneralizedHyperConnection)(layer) = Base.Fix1(ghc, layer)
 
-function (ghc::GeneralizedHyperConnection)(layer, h::AbstractArray, ::typeof(einsum))
+function (ghc::GeneralizedHyperConnection)(layer, h::AbstractArray)
     x  = einsum(h, ghc.down, einops"(d n) ..., n m -> (d m) ...")
     z  = layer(x)
     h′ = einsum(z, ghc.up, einops"(d m) ..., m n -> (d n) ...") +
