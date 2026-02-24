@@ -50,6 +50,18 @@ accumulate_type(::Type{Float16}) = Float16
 accumulate_type(::Type{Float8_E4M3FN}) = Float16
 accumulate_type(::Type{Float8_E5M2}) = Float16
 
+@inline function swizzle_2d(M, N, tm, tn, GROUP_SIZE_M, bid)
+  num_bid_m = cld(M, Int32(tm))
+  num_bid_n = cld(N, Int32(tn))
+  num_bid_in_group = Int32(GROUP_SIZE_M) * num_bid_n
+  group_id = fld(bid, num_bid_in_group)
+  first_bid_m = group_id * Int32(GROUP_SIZE_M)
+  group_size_m = min(num_bid_m - first_bid_m, Int32(GROUP_SIZE_M))
+  bid_m = first_bid_m + rem(bid, group_size_m)
+  bid_n = fld(rem(bid, num_bid_in_group), group_size_m)
+  return bid_m, bid_n
+end
+
 include("attention/attention.jl")
 
 include("feedforward/multihead.jl")
@@ -61,3 +73,5 @@ include("norm/layer_norm.jl")
 include("norm/rms_norm.jl")
 
 include("softmax.jl")
+
+include("linear.jl")

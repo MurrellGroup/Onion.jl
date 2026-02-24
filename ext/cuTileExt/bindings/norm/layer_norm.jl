@@ -6,7 +6,7 @@ function Onion.layer_norm(::cuTileBackend,
     return y
 end
 
-function rrule(::typeof(Onion.layer_norm), ::cuTileBackend,
+function CRC.rrule(::typeof(Onion.layer_norm), ::cuTileBackend,
     x::AbstractMatrix, w::AbstractVector, b::AbstractVector;
     eps
 )

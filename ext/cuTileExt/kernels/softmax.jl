@@ -14,7 +14,7 @@ function softmax_fwd(
     while i <= num_tiles
         tx = reshape(ct.load(X, (i, bid_n), (TILE_M, 1); padding_mode), (1, TILE_M))
         # Mask padded elements to -Inf
-        mask = ct.broadcast_to(((i - 1i32) * Int32(TILE_M) .+ ct.arange((TILE_M,), Int32)) .<= M, (1, TILE_M))
+        mask = reshape(((i - 1i32) * Int32(TILE_M) .+ ct.arange((TILE_M,), Int32)) .<= M, (1, TILE_M))
         tx = ifelse.(mask, tx, -Inf32)
 
         # Online softmax update
@@ -33,7 +33,7 @@ function softmax_fwd(
     i = 1i32
     while i <= num_tiles
         tx = reshape(ct.load(X, (i, bid_n), (TILE_M, 1); padding_mode), (1, TILE_M))
-        mask = ct.broadcast_to(((i - 1i32) * Int32(TILE_M) .+ ct.arange((TILE_M,), Int32)) .<= M, (1, TILE_M))
+        mask = reshape(((i - 1i32) * Int32(TILE_M) .+ ct.arange((TILE_M,), Int32)) .<= M, (1, TILE_M))
         tx = ifelse.(mask, tx, -Inf32)
         ty = exp.(tx .- m_global) ./ s_global
         ct.store(Y, (i, bid_n), reshape(ty, (TILE_M, 1)))
@@ -43,21 +43,6 @@ function softmax_fwd(
     return
 end
 
-#=============================================================================
- Online Softmax Backward Kernel
-
- Backward pass: computes gradient for softmax.
- Uses the identity: dx = y * (dy - sum(y * dy))
-
- No masking needed: y=0 for padded elements, so they contribute
- nothing to the dot product and produce 0 gradient.
-
- Args:
-     DX: Output gradient with respect to X (M, N).
-     DY: Input gradient with respect to Y (M, N).
-     Y: Forward output tensor (M, N).
-     TILE_M: Tile size along M (feature) dimension.
-=============================================================================#
 function softmax_bwd(
     DX::TileMatrix{Float32}, DY::TileMatrix{Float32},
     Y::TileMatrix{Float32},
@@ -109,7 +94,8 @@ function online_softmax(X::AbstractMatrix{T}; verify = nothing) where {T}
     return Y
 end
 
-function ∇online_softmax(Ȳ::AbstractMatrix, Y::AbstractMatrix)
+function ∇online_softmax(
+    Ȳ::AbstractMatrix, Y::AbstractMatrix)
     M, N = size(Y)
 
     X̄ = similar(Y)

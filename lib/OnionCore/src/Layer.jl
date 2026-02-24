@@ -24,7 +24,11 @@ LayerStyle(::Type{<:Layer}) = EagerStyle()
 struct EagerStyle <: LayerStyle end
 
 # Entry points
-(layer::Layer)(args...; kws...) = apply(EagerStyle(), layer, Rules(), args...; kws...)
+function (layer::Layer)(args...; backend=nothing, kws...)
+    r = isnothing(backend) ? Rules() : Rules(; backend)
+    apply(EagerStyle(), layer, r, args...; kws...)
+end
+
 (layer::Layer)(r::Rules, args...; kws...) = apply(EagerStyle(), layer, r, args...; kws...)
 
 # Style dispatch

@@ -1,6 +1,28 @@
-include("standard/standard.jl")
-include("normalization/normalization.jl")
-include("connections/connections.jl")
-include("positional-encoding/positional-encoding.jl")
-include("feedforward/feedforward.jl")
-include("attention/attention.jl")
+include("linear.jl")
+export Linear, BlockLinear
+
+include("norm.jl")
+export LayerNorm, LayerNormFirst, BGLayerNorm
+export RMSNorm, AdaLN, LpNorm, L2Norm, DyT, Derf
+
+include("composability.jl")
+export Composed, With, AdaAffine, Modulator
+
+include("connections.jl")
+export SkipConnection, ResidualConnection
+export GeneralizedHyperConnection, GHC, VirtualWidthNetwork
+
+include("rope.jl")
+export RoPE, MultidimRoPE, STRINGRoPE
+
+include("feedforward.jl")
+export StarGLU
+
+include("attention.jl")
+export Attention, KVCache, kv_cache, extend, pos, pos!, DART
+
+include("blocks.jl")
+export TransformerBlock, AdaTransformerBlock, STRINGBlock
+
+include("ipa.jl")
+export Framemover, IPAblock, CrossFrameIPA, pair_encode

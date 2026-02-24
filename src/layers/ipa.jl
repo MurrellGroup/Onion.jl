@@ -1,5 +1,4 @@
 import BatchedTransformations as BT
-using Flux: @layer
 
 batched_pairs(operator, a, b) = operator.(reshape(a, 1, :, size(a,2)),reshape(b, :, 1, size(b,2)))
 
@@ -16,23 +15,20 @@ function pairwise_sqeuclidean(x,y)
     AB_dots = batched_mul(x,y)
     return A_sqnorms .- 2 .* AB_dots .+ B_sqnorms
 end
-#d = pairwise_sqeuclidean(permutedims(p, (2,1,3)), p)
 
 """
     Framemover(dim::Int; init_gain = 0.1f0)
 
 Differentiable rigid body updates (AF2-style).
 """
-struct Framemover{A,B}
-    loc_decode::A
-    rot_decode::B
+@concrete struct Framemover <: Layer
+    loc_decode
+    rot_decode
 end
 
-@layer Framemover
-
 function Framemover(dim::Int; init_gain = 0.1f0)
-    loc_decode = Dense(dim => 3, bias = false, init = Flux.glorot_uniform(gain = init_gain))
-    rot_decode = Dense(dim => 3, bias = false, init = Flux.glorot_uniform(gain = init_gain))
+    loc_decode = Linear(dim => 3; bias=false, init=Flux.glorot_uniform(gain = init_gain))
+    rot_decode = Linear(dim => 3; bias=false, init=Flux.glorot_uniform(gain = init_gain))
     return Framemover(loc_decode, rot_decode)
 end
 
@@ -46,23 +42,21 @@ end
 
 
 """
-    IPAblock(dim::Int, ipa; ln1 = Flux.LayerNorm(dim), ln2 = Flux.LayerNorm(dim), ff = StarGLU(dim, 3dim))
+    IPAblock(dim::Int, ipa; ln1 = LayerNorm(dim), ln2 = LayerNorm(dim), ff = StarGLU(dim, 3dim))
 
 For use with Invariant Point Attention, either from InvariantPointAttention.jl or MessagePassingIPA.jl.
 If `ipablock.ipa` is from InvariantPointAttention.jl, then call `ipablock(frames, x; pair_feats = nothing, cond = nothing, mask = 0, kwargs...)`
 If `ipablock.ipa` is from MessagePassingIPA.jl, then call `ipablock(g, frames, x, pair_feats; cond = nothing)`
-Pass in `cond` if you're using eg. `AdaLN` that takes a second argument. 
+Pass in `cond` if you're using eg. `AdaLN` that takes a second argument.
 """
-struct IPAblock{A,B,C,D}
-    ln1::A
-    ipa::B
-    ln2::C
-    ff::D
+@concrete struct IPAblock <: Layer
+    ln1
+    ipa
+    ln2
+    ff
 end
 
-@layer IPAblock
-
-IPAblock(dim::Int, ipa; ln1 = Flux.LayerNorm(dim), ln2 = Flux.LayerNorm(dim), ff = StarGLU(dim, 3dim)) = IPAblock(ln1, ipa, ln2, ff)
+IPAblock(dim::Int, ipa; ln1 = LayerNorm(dim), ln2 = LayerNorm(dim), ff = StarGLU(dim, 3dim)) = IPAblock(ln1, ipa, ln2, ff)
 
 lncall(ln, x, cond) = ln(x, cond)
 lncall(ln, x, cond::Nothing) = ln(x)
@@ -85,21 +79,22 @@ end
 
 
 """
-   CrossFrameIPA(dim::Int, ipa; ln = Flux.LayerNorm(dim))
+   CrossFrameIPA(dim::Int, ipa; ln = LayerNorm(dim))
 
 Constructs a layer that takes one embedding, and two sets of frames. Runs layernorm on the embedding, and then makes a cross-attention IPA call with
 one embedding but two frames. Useful for self-conditioning where two sets of frames need to communicate with each other.
 """
-struct CrossFrameIPA{A,B}
-    ln::A
-    ipa::B
+@concrete struct CrossFrameIPA <: Layer
+    ln
+    ipa
 end
-@layer CrossFrameIPA
-CrossFrameIPA(dim::Int, ipa; ln = Flux.LayerNorm(dim)) = CrossFrameIPA(ln, ipa)
+
+CrossFrameIPA(dim::Int, ipa; ln = LayerNorm(dim)) = CrossFrameIPA(ln, ipa)
+
 function (ipa_block::CrossFrameIPA)(frames1::BT.Rigid, frames2::BT.Rigid, x; pair_feats = nothing, cond = nothing, mask = 0, kwargs...)
     T1 = values(BT.linear(frames1)), values(BT.translation(frames1))
     T2 = values(BT.linear(frames2)), values(BT.translation(frames2))
-    lnx = Onion.lncall(ipa_block.ln, x, cond)
+    lnx = lncall(ipa_block.ln, x, cond)
     x = x + ipa_block.ipa(T1, lnx, T2, lnx, zij = pair_feats, mask = mask, show_warnings = false, kwargs...) ./ 2
     return x
 end

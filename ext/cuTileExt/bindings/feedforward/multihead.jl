@@ -17,7 +17,7 @@ function Onion.multihead_ffn(::cuTileBackend,
     return multihead_ffn(Q, K, U, V)
 end
 
-function rrule(
+function CRC.rrule(
     ::typeof(Onion.multihead_ffn), ::cuTileBackend,
     Q::AbstractMatrix,
     K::AbstractMatrix, U::AbstractMatrix, V::AbstractMatrix,

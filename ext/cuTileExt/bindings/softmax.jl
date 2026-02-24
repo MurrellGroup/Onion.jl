@@ -7,8 +7,7 @@ function Onion.softmax(::cuTileBackend,
     return y
 end
 
-function rrule(
-    ::typeof(Onion.softmax), ::cuTileBackend,
+function CRC.rrule(::typeof(Onion.softmax), ::cuTileBackend,
     x::AbstractMatrix
 )
     y = online_softmax(x)

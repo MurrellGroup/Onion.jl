@@ -9,18 +9,6 @@
 #   W_down: (D_out, K)   — output × intermediate
 #   O:      (D_out, N)
 
-@inline function swizzle_2d(M, N, tm, tn, GROUP_SIZE_M, bid)
-    num_bid_m = cld(M, Int32(tm))
-    num_bid_n = cld(N, Int32(tn))
-    num_bid_in_group = Int32(GROUP_SIZE_M) * num_bid_n
-    group_id = fld(bid, num_bid_in_group)
-    first_bid_m = group_id * Int32(GROUP_SIZE_M)
-    group_size_m = min(num_bid_m - first_bid_m, Int32(GROUP_SIZE_M))
-    bid_m = first_bid_m + rem(bid, group_size_m)
-    bid_n = fld(rem(bid, num_bid_in_group), group_size_m)
-    return bid_m, bid_n
-end
-
 # ── Forward: Step 1 — fused gate + up matmuls (shared X loads) ───────
 
 function swiglu_gate_up_fwd(

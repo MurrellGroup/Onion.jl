@@ -1,8 +1,8 @@
 module cuTileExt
 
-import OnionStyle: _to
+import OnionStyle: →
 using cuTile: Tile
 
-_to(::Type{T}, x::Tile{<:AbstractFloat}) where T = T.(x)
+x::Tile{<:AbstractFloat} → T::Type = T.(x)
 
 end

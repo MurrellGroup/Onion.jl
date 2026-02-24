@@ -1,3 +1,32 @@
+abstract type AbstractConnection <: Layer end
+abstract type AbstractSkipConnection <: AbstractConnection end
+
+function operator end
+
+function (sc::AbstractSkipConnection)(F, x)
+    ⊕ = operator(sc)
+    return F(x) ⊕ x
+end
+
+function (sc::AbstractSkipConnection)(F, x, args...; kws...)
+    sc(x -> F(x, args...; kws...), x)
+end
+
+
+struct SkipConnection{Op} <: AbstractSkipConnection
+    op::Op
+end
+
+operator(sc::SkipConnection) = sc.op
+
+
+struct ResidualConnection <: AbstractSkipConnection end
+
+operator(::ResidualConnection) = (+)
+
+
+# ──── Generalized Hyper-Connections ────
+
 using LinearAlgebra
 using ChainRulesCore
 using NNlib
@@ -25,7 +54,7 @@ See also [`VirtualWidthNetwork`](@ref) and [`With`](@ref).
 # Examples
 
 ```jldoctest
-julia> ghc = GeneralizedHyperConnection(3, 2); # hidden width is 1.5x the backbone width 
+julia> ghc = GeneralizedHyperConnection(3, 2); # hidden width is 1.5x the backbone width
 
 julia> h = randn(Float32, 12, 5); # hidden state is kept at 12
 

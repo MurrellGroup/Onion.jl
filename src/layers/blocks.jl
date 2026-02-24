@@ -72,7 +72,13 @@ function AdaTransformerBlock(
 end
 
 
-@concrete struct STRINGBlock
+# kv_cache dispatch for TransformerBlock
+kv_cache(layer::TransformerBlock, args...) = kv_cache(layer.attention, args...)
+
+
+# ──── STRINGBlock ────
+
+@concrete struct STRINGBlock <: Layer
     block
     rope
 end

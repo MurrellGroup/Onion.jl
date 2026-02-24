@@ -1,4 +1,41 @@
 """
+    Linear(
+        d1 => d2;
+        bias::Bool=true,
+        init=Flux.glorot_uniform
+    )
+
+See also [`BlockLinear`](@ref).
+"""
+@concrete struct Linear <: Layer
+    weight; bias
+end
+
+function Linear(;
+    in_size::Int, out_size::Int,
+    bias::Bool=true, init=Flux.glorot_uniform
+)
+    W = init(out_size, in_size)
+    b = bias ? zeros_like(W, out_size) : false
+    return Linear(W, b)
+end
+
+Linear((d1, d2)::Pair{Int,Int}; kws...) = Linear(; in_size=d1, out_size=d2, kws...)
+
+function forward(l::Linear, r::Rules, x)
+    x′ = reshape(x, Keep(), :)
+    y′ = linear(r, x′, l.weight, l.bias)
+    return reshape(y′, Keep(), Split(.., Base.tail(size(x))))
+end
+
+function Base.show(io::IO, (; weight, bias)::Linear)
+    print(io, "Linear($(size(weight, 2)) => $(size(weight, 1))")
+    bias isa Union{Nothing,Bool} && print(io, ", bias=false")
+    print(io, ")")
+end
+
+
+"""
     BlockLinear(
         d1 => d2, k;
         bias::Bool=true, init=Flux.glorot_uniform)

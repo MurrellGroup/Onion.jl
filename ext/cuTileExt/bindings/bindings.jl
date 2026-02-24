@@ -1,7 +1,5 @@
 using Onion: Onion, cuTileBackend, DefaultBackend
-using OnionStyle: @asmatrix
 using ChainRulesCore: ChainRulesCore as CRC, NoTangent, unthunk
-import ChainRulesCore: rrule
 
 import Zygote
 
@@ -24,3 +22,5 @@ include("norm/layer_norm.jl")
 include("norm/rms_norm.jl")
 
 include("softmax.jl")
+
+include("linear.jl")

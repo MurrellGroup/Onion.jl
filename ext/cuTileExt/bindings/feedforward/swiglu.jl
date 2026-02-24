@@ -49,7 +49,7 @@ function Onion.glu_ffn(::cuTileBackend,
     return O
 end
 
-function rrule(
+function CRC.rrule(
     ::typeof(Onion.glu_ffn), ::cuTileBackend,
     X::AbstractMatrix,
     Wᵍ::AbstractMatrix, Wᵘ::AbstractMatrix, Wᵈ::AbstractMatrix,

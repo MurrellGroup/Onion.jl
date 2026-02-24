@@ -8,7 +8,7 @@ function Onion.rms_norm(::cuTileBackend,
     return y
 end
 
-function rrule(
+function CRC.rrule(
     ::typeof(Onion.rms_norm), ::cuTileBackend,
     x::AbstractMatrix, w::AbstractVector; eps, offset
 )

@@ -42,7 +42,7 @@ function ∇flash_attention(Ō, Q, K, V, B, O, (M, L); q_lengths=nothing, kws...
     return Q̄, K̄, V̄, B̄
 end
 
-function rrule(::typeof(flash_attention),
+function CRC.rrule(::typeof(flash_attention),
     Q::AbstractArray, K::AbstractArray, V::AbstractArray, B;
     kws...
 )
