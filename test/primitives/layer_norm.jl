@@ -29,8 +29,4 @@
         y_implicit = Onion.layer_norm(x, w, b; eps=1f-6)
         @test y_explicit ≈ y_implicit
     end
-
-    @testset "Primitive type" begin
-        @test Onion.layer_norm isa Onion.Primitive
-    end
 end

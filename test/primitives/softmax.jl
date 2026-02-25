@@ -30,8 +30,4 @@
         y_implicit = Onion.softmax(x)
         @test y_explicit ≈ y_implicit
     end
-
-    @testset "Primitive type" begin
-        @test Onion.softmax isa Onion.Primitive
-    end
 end

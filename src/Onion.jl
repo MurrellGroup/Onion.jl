@@ -20,15 +20,15 @@ include("utils/utils.jl")
 include("fuse.jl")
 public fuse
 
-include("Primitives/Primitives.jl")
-@republic using .Primitives
-
 include("backends.jl")
 export DefaultBackend
 export NNopBackend
 export cuTileBackend
 
 include("primitives/primitives.jl")
+public Primitive
+public backend, backend!, withbackend
+public @primitive
 
 include("layers/layers.jl")
 

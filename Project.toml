@@ -8,7 +8,6 @@ projects = ["test", "docs", "lib/OnionCore", "lib/OnionStyle"]
 
 [deps]
 BFloat16s = "ab4f0b2a-ad5b-11e8-123f-65d77653426b"
-BatchedTransformations = "8ba27c4b-52b5-4b10-bc66-a4fda05aa11b"
 ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
 ConcreteStructs = "2569d6c7-a4a2-43d3-a901-331e8e4be471"
 DLFP8Types = "f4c16678-4a16-415b-82ef-ed337c5d6c7c"
@@ -35,7 +34,6 @@ cuTileExt = "cuTile"
 
 [compat]
 BFloat16s = "0.6.1"
-BatchedTransformations = "0.5.7"
 ChainRulesCore = "1.25.2"
 ConcreteStructs = "0.2.3"
 DLFP8Types = "0.1.0"
@@ -45,7 +43,7 @@ LinearAlgebra = "1"
 NNlib = "0.9.27"
 NNop = "0.2.0"
 Random = "1.11.0"
-Republic = "0.0.4"
+Republic = "0.1.0"
 Rewrap = "0.1.7"
 SpecialFunctions = "2.6.1"
 Statistics = "1"

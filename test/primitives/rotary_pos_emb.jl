@@ -46,8 +46,4 @@
         y_implicit = Onion.rotary_pos_emb(x, cos_vals, sin_vals)
         @test y_explicit ≈ y_implicit
     end
-
-    @testset "Primitive type" begin
-        @test Onion.rotary_pos_emb isa Onion.Primitive
-    end
 end

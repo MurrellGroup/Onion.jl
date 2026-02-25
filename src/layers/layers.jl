@@ -24,5 +24,9 @@ export Attention, KVCache, kv_cache, extend, pos, pos!, DART
 include("blocks.jl")
 export TransformerBlock, AdaTransformerBlock, STRINGBlock
 
+include("pairwise/pairwise.jl")
+
+include("structural/structural.jl")
+
 include("ipa.jl")
 export Framemover, IPAblock, CrossFrameIPA, pair_encode

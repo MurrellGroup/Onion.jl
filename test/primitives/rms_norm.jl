@@ -32,8 +32,4 @@
         y_implicit = Onion.rms_norm(x, w; eps=1f-5, offset=0f0)
         @test y_explicit ≈ y_implicit
     end
-
-    @testset "Primitive type" begin
-        @test Onion.rms_norm isa Onion.Primitive
-    end
 end

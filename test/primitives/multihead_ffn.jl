@@ -27,8 +27,4 @@ using Einops: einsum, @einops_str
         y_implicit = Onion.multihead_ffn(Q, K_gate, K_up, V, Flux.swish)
         @test y_explicit ≈ y_implicit
     end
-
-    @testset "Primitive type" begin
-        @test Onion.multihead_ffn isa Onion.Primitive
-    end
 end

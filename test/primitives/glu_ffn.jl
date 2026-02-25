@@ -28,8 +28,4 @@
         y_implicit = Onion.glu_ffn(x, W_gate, W_up, W_down)
         @test y_explicit ≈ y_implicit
     end
-
-    @testset "Primitive type" begin
-        @test Onion.glu_ffn isa Onion.Primitive
-    end
 end

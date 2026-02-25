@@ -138,7 +138,7 @@ function multihead_ffn!(O,
 
     key = (eltype(Q), compute, TILE_D)
 
-    autotune_launch(mhf_fwd,
+    autotune_launch(mhffn_fwd,
         CartesianSpace(TILE_L=(32, 64, 128), TILE_I=(32, 64, 128), occupancy=(1, 2, 4)),
         cfg -> (cld(L, cfg.TILE_L), H),
         cfg -> (

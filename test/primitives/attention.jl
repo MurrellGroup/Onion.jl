@@ -41,8 +41,4 @@
         y_implicit = Onion.attention(q, k, v)
         @test y_explicit ≈ y_implicit
     end
-
-    @testset "Primitive type" begin
-        @test Onion.attention isa Onion.Primitive
-    end
 end

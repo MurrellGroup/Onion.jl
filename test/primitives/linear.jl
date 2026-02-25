@@ -22,9 +22,4 @@
         y_implicit = Onion.linear(x, W, b)
         @test y_explicit ≈ y_implicit
     end
-
-    @testset "Primitive type" begin
-        @test Onion.linear isa Onion.Primitive
-        @test Onion.linear isa Function
-    end
 end

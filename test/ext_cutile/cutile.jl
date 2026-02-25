@@ -1,3 +1,8 @@
+using Pkg
+Pkg.activate(temp=true)
+Pkg.add("CUDA")
+Pkg.add(name="cuTile", version="0.0.4")
+
 using CUDA
 using cuTile
 
@@ -39,8 +44,8 @@ using cuTile
         q = CUDA.randn(Float32, 8, 4, 2, 1)
         k = CUDA.randn(Float32, 8, 4, 2, 1)
         v = CUDA.randn(Float32, 8, 4, 2, 1)
-        ref = Onion.attention(DefaultBackend(), q, k, v)
-        y = Onion.attention(cuTileBackend(), q, k, v)
+        ref = Onion.attention(DefaultBackend(), q, k, v, causal=false)
+        y = Onion.attention(cuTileBackend(), q, k, v, causal=false)
         @test y ≈ ref rtol=1f-3
     end
 

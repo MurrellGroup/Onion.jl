@@ -1,4 +1,7 @@
-using NNop
+using Pkg
+Pkg.activate(temp=true)
+Pkg.add("CUDA")
+Pkg.add("cuTile", version="0.0.4")
 
 @testset "NNop Extension" begin
     @testset "softmax matches DefaultBackend" begin

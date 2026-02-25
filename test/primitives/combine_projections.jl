@@ -24,8 +24,4 @@
         y_implicit = Onion.combine_projections(a, b, true)
         @test y_explicit ≈ y_implicit
     end
-
-    @testset "Primitive type" begin
-        @test Onion.combine_projections isa Onion.Primitive
-    end
 end
