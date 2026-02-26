@@ -47,7 +47,7 @@ function (l::BGLinear)(x)
     x2 = reshape(x, in_dim, :)
     y = l.weight * x2
     if l.bias !== nothing
-        y .+= reshape(eltype(x).(l.bias), :, 1)
+        y = y .+ reshape(eltype(x).(l.bias), :, 1)
     end
     return reshape(y, size(l.weight, 1), size(x)[2:end]...)
 end

@@ -156,7 +156,11 @@ function compute_aggregated_metric(logits; end_value=1.0)
     num_bins = size(logits, ndims(logits))
     bin_width = end_value / num_bins
     T = eltype(logits)
-    bounds = T.(collect(range(0.5 * bin_width, step=bin_width, length=num_bins)))
+    # Bounds are fixed constants — wrap allocation+transfer in @ignore_derivatives
+    bounds = ChainRulesCore.@ignore_derivatives begin
+        bounds_cpu = T.(collect(range(0.5 * bin_width, step=bin_width, length=num_bins)))
+        copyto!(similar(logits, num_bins), bounds_cpu)
+    end
     probs = NNlib.softmax(logits; dims=ndims(logits))
     shape_prefix = ntuple(_ -> 1, ndims(probs) - 1)
     bounds_view = reshape(bounds, shape_prefix..., num_bins)

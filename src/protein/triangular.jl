@@ -70,7 +70,7 @@ function (m::OFMultiheadAttention)(q_x::AbstractArray, kv_x::AbstractArray;
         out4 = flash_attention_bias_forward(q4, k4, v4, _attn_bias_flash; scale=attn_scale)
     elseif !isempty(biases)
         # Accumulate biases in (batch..., H, Q, K) then convert to (K, Q, H, B)
-        bias_acc = fill!(similar(q4, eltype(q4), batch_shape..., H, Q, K), zero(eltype(q4)))
+        bias_acc = zeros_like(q4, eltype(q4), batch_shape..., H, Q, K)
         for bias in biases
             bias_acc = bias_acc .+ bias
         end

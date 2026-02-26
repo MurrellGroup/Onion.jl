@@ -55,7 +55,7 @@ function (layer::Transition)(x; chunk_size::Union{Nothing,Int}=nothing)
         if out === nothing
             out = chunk_out
         else
-            out .+= chunk_out
+            out = out .+ chunk_out
         end
     end
     return out
