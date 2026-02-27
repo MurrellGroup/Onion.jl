@@ -101,3 +101,13 @@ When `outgoing`, contracts as `a @ bᵀ` per channel×batch; otherwise `aᵀ @ b
 """
 @primitive combine_projections
 include("contraction/combine_projections.jl")
+
+"""
+    newton_schulz(X, coefficients)
+
+Quintic Newton-Schulz iteration for polar decomposition.
+`coefficients` is an iterable of `(a, b, c)` tuples — one per iteration.
+Each step applies `Y = aX + bXXᵀX + cXXᵀXXᵀX` (tall) or the wide variant.
+"""
+@primitive newton_schulz
+include("newton_schulz.jl")

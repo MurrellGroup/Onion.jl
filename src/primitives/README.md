@@ -2,7 +2,7 @@
 
 `Onion.Primitives` provides backend-dispatched primitives:
 
-`linear`, `rms_norm`, `layer_norm`, `softmax`, `attention`, `glu_ffn`, `multihead_ffn`, `rotary_pos_emb`, `combine_projections`
+`linear`, `rms_norm`, `layer_norm`, `softmax`, `attention`, `glu_ffn`, `multihead_ffn`, `rotary_pos_emb`, `combine_projections`, `quintic_newton_schulz`
 
 Each primitive is a callable singleton (`<: Primitive <: Function`) that dispatches through a concrete `Backend` instance.
 

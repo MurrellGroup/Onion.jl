@@ -35,13 +35,13 @@ function RelativePosition(bins::Int, pairwise_state_dim::Int)
 end
 
 function (m::RelativePosition)(residue_index::AbstractArray; mask=nothing)
-    diff = reshape(residue_index, 1, size(residue_index, 1), size(residue_index, 2)) .-
-           reshape(residue_index, size(residue_index, 1), 1, size(residue_index, 2))
+    diff = rearrange(residue_index, einops"L B -> 1 L B") .-
+           rearrange(residue_index, einops"L B -> L 1 B")
     diff = clamp.(diff, -m.bins, m.bins)
     diff = diff .+ m.bins .+ 1
 
     if mask !== nothing
-        pair_mask = reshape(mask, size(mask, 1), 1, size(mask, 2)) .* reshape(mask, 1, size(mask, 1), size(mask, 2))
+        pair_mask = rearrange(mask, einops"L B -> L 1 B") .* rearrange(mask, einops"L B -> 1 L B")
         diff = ifelse.(pair_mask .== 1, diff, 0)
     end
 
@@ -77,8 +77,8 @@ function distogram(coords, min_bin::Real, max_bin::Real, num_bins::Int)
     a = cross_first(b, c)
     CB = (-0.58273431f0 .* a) .+ (0.56802827f0 .* b) .- (0.54067466f0 .* c) .+ CA
 
-    diff = reshape(CB, 3, size(CB, 2), 1, size(CB, 3)) .-
-           reshape(CB, 3, 1, size(CB, 2), size(CB, 3))
+    diff = rearrange(CB, einops"xyz L B -> xyz L 1 B") .-
+           rearrange(CB, einops"xyz L B -> xyz 1 L B")
     dists = sum(diff .^ 2; dims=1)
     dists = dropdims(dists; dims=1)
 

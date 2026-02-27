@@ -47,7 +47,6 @@ function linear!(
     accumulate = accumulate_type(tensorcore),
     verify = nothing,
 )
-    println("hi")
     M, N = size(Y)
     K = transpose_w ? size(W, 1) : size(W, 2)
     @assert (transpose_w ? size(W, 2) : size(W, 1)) == M

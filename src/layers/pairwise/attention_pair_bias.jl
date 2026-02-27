@@ -41,10 +41,10 @@ function (l::AttentionPairBias)(s, z, mask, k_in=s)
     # Compute pair bias: (C_z, L, L, B) → (H, L, L, B) → (K, Q, H, B)
     if l.compute_pair_bias
         pair = l.proj_z(l.proj_z_norm(z))           # (H, K, Q, B)
-        pair = permutedims(pair, (2, 3, 1, 4))      # (K, Q, H, B)
     else
-        pair = permutedims(z, (2, 3, 1, 4))         # assume z already (H, K, Q, B)
+        pair = z                                     # assume z already (H, K, Q, B)
     end
+    pair = rearrange(pair, einops"H K Q B -> K Q H B")
 
     return l.attn(s, k_in; pair, kpad_mask=mask)
 end

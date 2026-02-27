@@ -44,7 +44,7 @@ function layer_norm_fwd(
     while i <= num_tiles
         tx = reshape(ct.load(X, (i, bid_n), (TILE_M, 1); padding_mode=ct.PaddingMode.Zero), (1, TILE_M))
         # Mask for valid elements
-        mask = ct.broadcast_to(((i - 1i32) * Int32(TILE_M) .+ ct.arange((TILE_M,), Int32)) .<= M, (1, TILE_M))
+        mask = reshape(((i - 1i32) * Int32(TILE_M) .+ ct.arange((TILE_M,), Int32)) .<= M, (1, TILE_M))
         centered_tx = ifelse.(mask, tx .- mean, 0.0f0)
         var = var .+ (centered_tx .^ 2.0f0)
         i += 1i32
@@ -98,7 +98,7 @@ All returned tiles are in (1, TILE_M) computation orientation.
     indices = ct.arange((TILE_M,), Int32)
     offset = (i - 1i32) * Int32(TILE_M)
     global_indices = offset .+ indices
-    mask = ct.broadcast_to(global_indices .<= M, (1, TILE_M))
+    mask = reshape(global_indices .<= M, (1, TILE_M))
 
     xhat_masked = ifelse.(mask, xhat, 0.0f0)
     wdy_masked = ifelse.(mask, wdy, 0.0f0)

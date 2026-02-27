@@ -20,27 +20,24 @@ function (m::ESMFoldAttention)(x; mask=nothing, bias=nothing)
     D, H = m.head_width, m.num_heads
     L, B = size(x, 2), size(x, 3)
 
-    t = reshape(m.proj(x), D, 3, H, L, B)
+    t = rearrange(m.proj(x), einops"(D three H) L B -> D three H L B"; D, three=3)
     # Extract Q/K/V → (D, L, H, B) for attention primitive
-    q = permutedims(@view(t[:, 1, :, :, :]), (1, 3, 2, 4))
-    k = permutedims(@view(t[:, 2, :, :, :]), (1, 3, 2, 4))
-    v = permutedims(@view(t[:, 3, :, :, :]), (1, 3, 2, 4))
+    q, k, v = rearrange.(@views((t[:, 1, :, :, :], t[:, 2, :, :, :], t[:, 3, :, :, :])),
+                          einops"D H L B -> D L H B")
 
     # Build pair bias in (K, Q, H, B) format
     pair = nothing
     if bias !== nothing
-        # bias: (H, Q, K, B) → (K, Q, H, B)
-        pair = permutedims(bias, (3, 2, 1, 4))
+        pair = rearrange(bias, einops"H Q K B -> K Q H B")
     end
     if mask !== nothing
-        # mask: (B, L) or (L, B) — convert to -Inf for masked positions
         T = eltype(t)
-        mask_bias = reshape(ifelse.(mask .== 1, zero(T), T(-Inf)), L, 1, 1, B)
+        mask_bias = rearrange(ifelse.(mask .== 1, zero(T), T(-Inf)), einops"L B -> L 1 1 B")
         pair = pair === nothing ? repeat(mask_bias, 1, L, H, 1) : pair .+ mask_bias
     end
 
     out = attention(q, k, v; pair)
-    o = reshape(permutedims(out, (1, 3, 2, 4)), D * H, L, B)
+    o = rearrange(out, einops"D L H B -> (D H) L B")
 
     if m.gated
         o = NNlib.sigmoid.(m.g_proj(x)) .* o

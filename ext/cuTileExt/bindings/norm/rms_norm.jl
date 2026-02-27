@@ -4,7 +4,7 @@ function Onion.rms_norm(::cuTileBackend,
     x::AbstractMatrix, w::AbstractVector;
     eps, offset
 )
-    y = rms_norm(x, w; eps, offset)
+    y, _ = rms_norm(x, w; eps, offset)
     return y
 end
 

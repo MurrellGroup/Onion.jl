@@ -5,6 +5,7 @@ Pkg.add(name="cuTile", version="0.0.4")
 
 using CUDA
 using cuTile
+using Onion: swish
 
 @testset "cuTile Extension" begin
     @testset "softmax matches DefaultBackend" begin
@@ -64,8 +65,33 @@ using cuTile
         Kg = CUDA.randn(Float32, 12, 8, 2)
         Ku = CUDA.randn(Float32, 12, 8, 2)
         V = CUDA.randn(Float32, 8, 12, 2)
-        ref = Onion.multihead_ffn(DefaultBackend(), Q, Kg, Ku, V, Flux.swish)
-        y = Onion.multihead_ffn(cuTileBackend(), Q, Kg, Ku, V, Flux.swish)
+        ref = Onion.multihead_ffn(DefaultBackend(), Q, Kg, Ku, V, Onion.swish)
+        y = Onion.multihead_ffn(cuTileBackend(), Q, Kg, Ku, V, Onion.swish)
         @test y ≈ ref rtol=1f-3
+    end
+
+    @testset "newton_schulz matches DefaultBackend" begin
+        coeffs = fill((3.4445f0, -4.7750f0, 2.0315f0), 5)
+
+        @testset "tall (M > N)" begin
+            X = CUDA.randn(Float32, 16, 8) * 0.1f0
+            ref = Onion.newton_schulz(DefaultBackend(), X, coeffs)
+            y = Onion.newton_schulz(cuTileBackend(), X, coeffs, arithmetic=Float32)
+            @test y ≈ ref rtol=1f-3
+        end
+
+        @testset "wide (M < N)" begin
+            X = CUDA.randn(Float32, 8, 16) * 0.1f0
+            ref = Onion.newton_schulz(DefaultBackend(), X, coeffs)
+            y = Onion.newton_schulz(cuTileBackend(), X, coeffs, arithmetic=Float32)
+            @test y ≈ ref rtol=1f-3
+        end
+
+        @testset "3D batched" begin
+            X = CUDA.randn(Float32, 16, 8, 3) * 0.1f0
+            ref = Onion.newton_schulz(DefaultBackend(), X, coeffs)
+            y = Onion.newton_schulz(cuTileBackend(), X, coeffs, arithmetic=Float32)
+            @test y ≈ ref rtol=1f-3
+        end
     end
 end

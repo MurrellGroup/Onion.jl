@@ -24,31 +24,28 @@ function (m::TriangleAttention)(x; mask=nothing)
     # x: (C, L₁, L₂, B)
     # Permute so the attention axis is dim 2 and the other axis+batch are flattened
     if m.starting
-        x_att = permutedims(x, (1, 3, 4, 2))  # (C, L₂, B, L₁) — attend along L₁
+        x_att = rearrange(x, einops"C L1 L2 B -> C L2 B L1")   # attend along L₁
     else
-        x_att = permutedims(x, (1, 2, 4, 3))  # (C, L₁, B, L₂) — attend along L₂
+        x_att = rearrange(x, einops"C L1 L2 B -> C L1 B L2")   # attend along L₂
     end
     C, Ls, B_eff... = size(x_att)
     x_att = m.norm(x_att)
 
     # Flatten extra dims into batch: (C, L_seq, batch_eff)
-    batch_eff = prod(B_eff)
-    x_flat = reshape(x_att, C, Ls, batch_eff)
+    x_flat = rearrange(x_att, einops"C Ls ... -> C Ls (...)")
 
-    # Per-key bias: (H, L_seq, batch_eff) → (K, 1, H, batch_eff) for pair format
-    b = m.bias_proj(x_att)  # (H, L_seq, B_eff...)
-    b = reshape(b, size(b, 1), Ls, batch_eff)
-    pair = permutedims(reshape(b, size(b, 1), Ls, 1, batch_eff), (2, 3, 1, 4))  # (K, 1, H, batch_eff)
+    # Per-key bias: (H, L_seq, ...) → (K, 1, H, batch_eff) for pair format
+    b_flat = rearrange(m.bias_proj(x_att), einops"H K ... -> K 1 H (...)")
 
     # TODO: handle mask
-    out = m.attn(x_flat; pair)
+    out = m.attn(x_flat; pair=b_flat)
 
     # Unflatten and inverse permute
     out = reshape(out, C, Ls, B_eff...)
     if m.starting
-        out = permutedims(out, (1, 4, 2, 3))  # (C, L₁, L₂, B)
+        out = rearrange(out, einops"C L2 B L1 -> C L1 L2 B")
     else
-        out = permutedims(out, (1, 2, 4, 3))  # (C, L₁, L₂, B)
+        out = rearrange(out, einops"C L1 B L2 -> C L1 L2 B")
     end
     return out
 end

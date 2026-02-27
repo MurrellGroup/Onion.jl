@@ -24,3 +24,5 @@ include("norm/rms_norm.jl")
 include("softmax.jl")
 
 include("linear.jl")
+
+include("newton_schulz.jl")

@@ -26,28 +26,28 @@ function (l::PairWeightedAveraging)(m, z, mask)
     m = l.norm_m(m)
     z = l.norm_z(z)
 
-    v = l.proj_m(m)
-    g = l.proj_g(m)
+    v_raw = l.proj_m(m)
+    g_raw = l.proj_g(m)
 
     s, n, bsz = size(m, 2), size(m, 3), size(m, 4)
 
-    v = permutedims(reshape(v, c_h, h, s, n, bsz), (2, 3, 4, 1, 5))  # (H, S, N, C_h, B)
-    g = NNlib.sigmoid.(permutedims(reshape(g, c_h, h, s, n, bsz), (2, 3, 4, 1, 5)))
+    v = rearrange(v_raw, einops"(Ch H) S N B -> H S N Ch B"; Ch=c_h)
+    g = NNlib.sigmoid.(rearrange(g_raw, einops"(Ch H) S N B -> H S N Ch B"; Ch=c_h))
 
     # Pair weights: softmax over the N (key) dim
-    b = l.proj_z(z)  # (H, N, N, B)
-    mask_b = reshape(mask, 1, n, n, bsz)
+    b = l.proj_z(z)  # (H, Nq, Nk, B)
+    mask_b = rearrange(mask, einops"Nq Nk B -> 1 Nq Nk B")
     b = b .+ (1 .- mask_b) .* (-l.inf)
     w = NNlib.softmax(b; dims=3)
 
     # Batched aggregation
-    w_bat = reshape(permutedims(w, (2, 3, 1, 4)), n, n, h * bsz)
-    v_bat = reshape(permutedims(v, (3, 4, 2, 1, 5)), n, c_h * s, h * bsz)
-    o_flat = NNlib.batched_mul(w_bat, v_bat)  # (N, C_h*S, H*B)
+    w_bat = rearrange(w, einops"H Nq Nk B -> Nq Nk (H B)")
+    v_bat = rearrange(v, einops"H S N Ch B -> N (Ch S) (H B)")
+    o_flat = NNlib.batched_mul(w_bat, v_bat)  # (N, Ch*S, H*B)
 
-    o = permutedims(reshape(o_flat, n, c_h, s, h, bsz), (4, 3, 1, 2, 5))  # (H, S, N, C_h, B)
+    o = rearrange(o_flat, einops"N (Ch S) (H B) -> H S N Ch B"; Ch=c_h, S=s, H=h)
     o = o .* g
-    o = reshape(permutedims(o, (4, 1, 2, 3, 5)), c_h * h, s, n, bsz)
+    o = rearrange(o, einops"H S N Ch B -> (Ch H) S N B")
 
     return l.proj_o(o)
 end

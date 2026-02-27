@@ -23,24 +23,23 @@ function (l::OuterProductMean)(m, mask)
     c_h = l.c_hidden
 
     m = l.norm(m)
-    mask4 = reshape(mask, 1, size(mask)...)
-    a = l.proj_a(m) .* mask4  # (C_h, S, N, B)
+    mask4 = rearrange(mask, einops"S N B -> 1 S N B")
+    a = l.proj_a(m) .* mask4  # (Ch, S, N, B)
     b = l.proj_b(m) .* mask4
 
-    s, n, bsz = size(m, 2), size(m, 3), size(m, 4)
+    n, bsz = size(m, 3), size(m, 4)
 
     # Mask sum for normalization: (N, N, B)
-    mask_t = permutedims(mask, (2, 1, 3))  # (N, S, B)
+    mask_t = rearrange(mask, einops"S N B -> N S B")
     mask_sum = max.(NNlib.batched_mul(mask_t, mask), one(T))
 
     # Outer product via batched_mul contracting over S
-    a_flat = reshape(permutedims(a, (1, 3, 2, 4)), c_h * n, s, bsz)
-    b_flat = reshape(permutedims(b, (2, 1, 3, 4)), s, c_h * n, bsz)
-    z_flat = NNlib.batched_mul(a_flat, b_flat)  # (C_h*N, C_h*N, B)
+    a_flat = rearrange(a, einops"Ch S N B -> (Ch N) S B")
+    b_flat = rearrange(b, einops"Ch S N B -> S (Ch N) B")
+    z_flat = NNlib.batched_mul(a_flat, b_flat)  # (Ch*N, Ch*N, B)
 
-    z_5d = reshape(z_flat, c_h, n, c_h, n, bsz)
-    z = reshape(permutedims(z_5d, (3, 1, 2, 4, 5)), c_h * c_h, n, n, bsz)
-    z = z ./ reshape(mask_sum, 1, n, n, bsz)
+    z = rearrange(reshape(z_flat, c_h, n, c_h, n, bsz), einops"Ch1 N1 Ch2 N2 B -> (Ch2 Ch1) N1 N2 B")
+    z = z ./ rearrange(mask_sum, einops"N1 N2 B -> 1 N1 N2 B")
 
     return l.proj_o(z)
 end

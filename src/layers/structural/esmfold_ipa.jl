@@ -35,129 +35,82 @@ function ESMFoldIPA(
 end
 
 function (m::ESMFoldIPA)(s, z, r, mask)
-    q = m.linear_q(s)
-    q = reshape(q, m.c_hidden, m.no_heads, size(q, 2), size(q, 3))
-    kv = m.linear_kv(s)
-    kv = reshape(kv, 2 * m.c_hidden, m.no_heads, size(kv, 2), size(kv, 3))
-    k = view(kv, 1:m.c_hidden, :, :, :)
-    v = view(kv, (m.c_hidden + 1):(2 * m.c_hidden), :, :, :)
+    B = size(s, 3)
 
-    q_bhlc = permutedims(q, (4, 2, 3, 1))
-    k_bhlc = permutedims(k, (4, 2, 3, 1))
-    k_bhcl = permutedims(k_bhlc, (1, 2, 4, 3))
+    # Scalar Q/K/V projections
+    q = rearrange(m.linear_q(s), einops"(C H) L B -> C H L B"; C=m.c_hidden)
+    kv = rearrange(m.linear_kv(s), einops"(C H) L B -> C H L B"; C=2*m.c_hidden)
+    k = @view kv[1:m.c_hidden, :, :, :]
+    v = @view kv[m.c_hidden+1:end, :, :, :]
 
-    B = size(q_bhlc, 1)
-    H = size(q_bhlc, 2)
-    L = size(q_bhlc, 3)
-    C = size(q_bhlc, 4)
-    q3 = permutedims(reshape(q_bhlc, B * H, L, C), (2, 3, 1))
-    k3 = permutedims(reshape(k_bhcl, B * H, C, L), (2, 3, 1))
-    a3 = NNlib.batched_mul(q3, k3)
-    a = reshape(a3, L, L, B, H)
-    a = permutedims(a, (3, 4, 1, 2))
-
+    # Scalar attention: Q·Kᵀ via batched_mul
+    q3 = rearrange(q, einops"C H L B -> L C (B H)")
+    k3 = rearrange(k, einops"C H L B -> C L (B H)")
+    a = rearrange(NNlib.batched_mul(q3, k3), einops"Q K (B H) -> B H Q K"; B)
     a = a .* sqrt(1f0 / (3f0 * m.c_hidden))
 
-    b = m.linear_b(z)
-    b_perm = permutedims(b, (4, 1, 2, 3))
-    a = a .+ sqrt(1f0 / 3f0) .* b_perm
+    # Pair bias
+    a = a .+ sqrt(1f0 / 3f0) .* rearrange(m.linear_b(z), einops"H L1 L2 B -> B H L1 L2")
 
+    # Point projections → (B, L, H, P, xyz)
     q_pts = m.linear_q_points(s, r)
     kv_pts = m.linear_kv_points(s, r)
-    k_pts = view(kv_pts, :, 1:m.no_qk_points, :, :, :)
-    v_pts = view(kv_pts, :, (m.no_qk_points + 1):(m.no_qk_points + m.no_v_points), :, :, :)
+    k_pts = @view kv_pts[:, 1:m.no_qk_points, :, :, :]
+    v_pts = @view kv_pts[:, (m.no_qk_points+1):(m.no_qk_points+m.no_v_points), :, :, :]
 
-    q_pts = permutedims(q_pts, (5, 4, 3, 2, 1))
-    k_pts = permutedims(k_pts, (5, 4, 3, 2, 1))
-    v_pts = permutedims(v_pts, (5, 4, 3, 2, 1))
+    q_pts, k_pts, v_pts = rearrange.((q_pts, k_pts, v_pts), einops"xyz P H L B -> B L H P xyz")
 
-    q_exp = reshape(q_pts, size(q_pts, 1), size(q_pts, 2), 1, size(q_pts, 3), size(q_pts, 4), size(q_pts, 5))
-    k_exp = reshape(k_pts, size(k_pts, 1), 1, size(k_pts, 2), size(k_pts, 3), size(k_pts, 4), size(k_pts, 5))
-    pt_att = q_exp .- k_exp
-    pt_att = sum(pt_att .^ 2; dims=6)
+    # Point distance attention
+    q_exp = rearrange(q_pts, einops"B Q H P xyz -> B Q 1 H P xyz")
+    k_exp = rearrange(k_pts, einops"B K H P xyz -> B 1 K H P xyz")
+    pt_att = sum((q_exp .- k_exp) .^ 2; dims=6)
 
     head_weights = NNlib.softplus.(m.head_weights)
     head_weights = head_weights .* sqrt(1f0 / (3f0 * (m.no_qk_points * 9f0 / 2f0)))
     hw = reshape(head_weights, 1, 1, 1, m.no_heads, 1, 1)
-    pt_att = sum(pt_att .* hw; dims=5) .* (-0.5f0)
-    pt_att = dropdims(pt_att; dims=(5, 6))
-    pt_att = permutedims(pt_att, (1, 4, 2, 3))
+    pt_att = dropdims(sum(pt_att .* hw; dims=5) .* (-0.5f0); dims=(5, 6))
+    a = a .+ rearrange(pt_att, einops"B Q K H -> B H Q K")
 
-    square_mask = reshape(mask, size(mask, 1), 1, size(mask, 2)) .* reshape(mask, 1, size(mask, 1), size(mask, 2))
-    square_mask = permutedims(square_mask, (3, 1, 2))
-    square_mask = m.inf .* (square_mask .- 1)
-    a = a .+ pt_att
-    a = a .+ reshape(square_mask, size(square_mask, 1), 1, size(square_mask, 2), size(square_mask, 3))
+    # Square mask
+    square_mask = rearrange(mask, einops"Q B -> Q 1 B") .* rearrange(mask, einops"K B -> 1 K B")
+    square_mask = m.inf .* (rearrange(square_mask, einops"Q K B -> B Q K") .- 1)
+    a = a .+ rearrange(square_mask, einops"B Q K -> B 1 Q K")
 
     a = NNlib.softmax(a; dims=4)
 
-    v_bhlc = permutedims(v, (4, 2, 3, 1))
-    a3 = reshape(permutedims(a, (3, 4, 1, 2)), L, L, :)
-    v3 = permutedims(reshape(v_bhlc, B * H, L, C), (2, 3, 1))
-    o3 = NNlib.batched_mul(a3, v3)
-    o = reshape(o3, L, C, B, H)
-    o = permutedims(o, (3, 1, 4, 2))
-    o = permutedims(o, (1, 2, 4, 3))
-    o = reshape(o, B, L, H * C)
+    # Scalar value aggregation
+    a3 = rearrange(a, einops"B H Q K -> Q K (B H)")
+    v3 = rearrange(v, einops"C H L B -> L C (B H)")
+    o = rearrange(NNlib.batched_mul(a3, v3), einops"L C (B H) -> B L (C H)"; B)
 
-    v_pts_x = _view_last1(v_pts, 1)
-    v_pts_y = _view_last1(v_pts, 2)
-    v_pts_z = _view_last1(v_pts, 3)
+    # Point value aggregation (combined xyz)
+    vp = rearrange(v_pts, einops"B L H P xyz -> L (P xyz) (B H)")
+    o_pt = rearrange(NNlib.batched_mul(a3, vp),
+        einops"L (P xyz) (B H) -> B L H P xyz"; P=m.no_v_points, xyz=3, B)
 
-    vpx = permutedims(v_pts_x, (2, 4, 1, 3))
-    vpy = permutedims(v_pts_y, (2, 4, 1, 3))
-    vpz = permutedims(v_pts_z, (2, 4, 1, 3))
+    # Apply inverse rigid transform
+    o_pt = invert_apply_rigid(r, rearrange(o_pt, einops"B L H P xyz -> xyz P H L B"))
+    o_pt = rearrange(o_pt, einops"xyz P H L B -> B L H P xyz")
 
-    vpx3 = reshape(vpx, L, m.no_v_points, :)
-    vpy3 = reshape(vpy, L, m.no_v_points, :)
-    vpz3 = reshape(vpz, L, m.no_v_points, :)
-
-    o_px = NNlib.batched_mul(a3, vpx3)
-    o_py = NNlib.batched_mul(a3, vpy3)
-    o_pz = NNlib.batched_mul(a3, vpz3)
-
-    o_px = reshape(o_px, L, m.no_v_points, B, m.no_heads)
-    o_py = reshape(o_py, L, m.no_v_points, B, m.no_heads)
-    o_pz = reshape(o_pz, L, m.no_v_points, B, m.no_heads)
-
-    o_px = permutedims(o_px, (3, 1, 4, 2))
-    o_py = permutedims(o_py, (3, 1, 4, 2))
-    o_pz = permutedims(o_pz, (3, 1, 4, 2))
-
-    o_pt = cat(o_px, o_py, o_pz; dims=5)
-    o_pt = invert_apply_rigid(r, permutedims(o_pt, (5, 4, 3, 2, 1)))
-    o_pt = permutedims(o_pt, (5, 4, 3, 2, 1))
-
+    # Point norms
     o_pt_norm = sqrt.(sum(o_pt .^ 2; dims=5) .+ m.eps)
-    o_pt_norm = dropdims(o_pt_norm; dims=5)
-    o_pt_norm = permutedims(o_pt_norm, (1, 2, 4, 3))
-    o_pt_norm = reshape(o_pt_norm, size(o_pt_norm, 1), size(o_pt_norm, 2), m.no_heads * m.no_v_points)
+    o_pt_norm = rearrange(dropdims(o_pt_norm; dims=5), einops"B L H P -> B L (P H)")
 
-    o_pt = permutedims(o_pt, (1, 2, 4, 3, 5))
-    o_pt = reshape(o_pt, size(o_pt)[1:end-3]..., m.no_heads * m.no_v_points, 3)
-    o_px = _view_last1(o_pt, 1)
-    o_py = _view_last1(o_pt, 2)
-    o_pz = _view_last1(o_pt, 3)
+    # Point xyz for output
+    o_pt_flat = rearrange(o_pt, einops"B L H P xyz -> B L (P H) xyz")
+    o_px = _view_last1(o_pt_flat, 1)
+    o_py = _view_last1(o_pt_flat, 2)
+    o_pz = _view_last1(o_pt_flat, 3)
 
-    a_t = permutedims(a, (1, 2, 4, 3))
-    a_exp = reshape(a_t, size(a_t, 1), size(a_t, 2), size(a_t, 3), size(a_t, 4), 1)
-    z_swap = permutedims(z, (4, 3, 2, 1))
-    z_exp = reshape(z_swap, size(z_swap, 1), 1, size(z_swap, 2), size(z_swap, 3), size(z_swap, 4))
-    o_pair = sum(a_exp .* z_exp; dims=3)
-    o_pair = dropdims(o_pair; dims=3)
-    o_pair = permutedims(o_pair, (1, 3, 2, 4))
-    o_pair = permutedims(o_pair, (1, 2, 4, 3))
-    o_pair = reshape(o_pair, size(o_pair, 1), size(o_pair, 2), m.no_heads * m.c_z)
+    # Pair aggregation via einsum
+    o_pair = einsum(a, z, einops"B H Q K, Cz Q K B -> B Q H Cz")
+    o_pair = rearrange(o_pair, einops"B Q H Cz -> B Q (Cz H)")
 
-    o_feat = permutedims(o, (3, 2, 1))
-    o_px = permutedims(o_px, (3, 2, 1))
-    o_py = permutedims(o_py, (3, 2, 1))
-    o_pz = permutedims(o_pz, (3, 2, 1))
-    o_pt_norm = permutedims(o_pt_norm, (3, 2, 1))
-    o_pair = permutedims(o_pair, (3, 2, 1))
+    # Final output: all to (D, L, B) and concatenate
+    o, o_px, o_py, o_pz, o_pt_norm, o_pair =
+        rearrange.((o, o_px, o_py, o_pz, o_pt_norm, o_pair), einops"B L D -> D L B")
 
-    concat = cat(o_feat, o_px, o_py, o_pz, o_pt_norm, o_pair; dims=1)
-    return m.linear_out(concat)
+    return m.linear_out(cat(o, o_px, o_py, o_pz, o_pt_norm, o_pair; dims=1))
 end
 
 const InvariantPointAttention = ESMFoldIPA
@@ -203,129 +156,76 @@ function MultimerInvariantPointAttention(
 end
 
 function (m::MultimerInvariantPointAttention)(s::AbstractArray, z::AbstractArray, r, mask::AbstractArray)
-    q = m.linear_q(s)
-    q = reshape(q, m.c_hidden, m.no_heads, size(q, 2), size(q, 3))
+    B = size(s, 3)
 
-    k = m.linear_k(s)
-    k = reshape(k, m.c_hidden, m.no_heads, size(k, 2), size(k, 3))
+    # Scalar Q/K/V projections
+    q = rearrange(m.linear_q(s), einops"(C H) L B -> C H L B"; C=m.c_hidden)
+    k = rearrange(m.linear_k(s), einops"(C H) L B -> C H L B"; C=m.c_hidden)
+    v = rearrange(m.linear_v(s), einops"(C H) L B -> C H L B"; C=m.c_hidden)
 
-    v = m.linear_v(s)
-    v = reshape(v, m.c_hidden, m.no_heads, size(v, 2), size(v, 3))
-
-    q_bhlc = permutedims(q, (4, 2, 3, 1))
-    k_bhlc = permutedims(k, (4, 2, 3, 1))
-    k_bhcl = permutedims(k_bhlc, (1, 2, 4, 3))
-
-    B = size(q_bhlc, 1)
-    H = size(q_bhlc, 2)
-    L = size(q_bhlc, 3)
-    C = size(q_bhlc, 4)
-
-    q3 = permutedims(reshape(q_bhlc, B * H, L, C), (2, 3, 1))
-    k3 = permutedims(reshape(k_bhcl, B * H, C, L), (2, 3, 1))
-    a3 = NNlib.batched_mul(q3, k3)
-    a = reshape(a3, L, L, B, H)
-    a = permutedims(a, (3, 4, 1, 2))
+    # Scalar attention: Q·Kᵀ via batched_mul
+    q3 = rearrange(q, einops"C H L B -> L C (B H)")
+    k3 = rearrange(k, einops"C H L B -> C L (B H)")
+    a = rearrange(NNlib.batched_mul(q3, k3), einops"Q K (B H) -> B H Q K"; B)
     a = a .* sqrt(1f0 / max(Float32(m.c_hidden), 1f0))
 
-    b = m.linear_b(z)
-    b_perm = permutedims(b, (4, 1, 2, 3))
-    a = a .+ b_perm
+    # Pair bias
+    a = a .+ rearrange(m.linear_b(z), einops"H L1 L2 B -> B H L1 L2")
 
-    q_pts = m.linear_q_points(s, r)
-    k_pts = m.linear_k_points(s, r)
-    v_pts = m.linear_v_points(s, r)
+    # Point projections → (B, L, H, P, xyz)
+    q_pts, k_pts, v_pts = rearrange.((m.linear_q_points(s, r), m.linear_k_points(s, r), m.linear_v_points(s, r)),
+        einops"xyz P H L B -> B L H P xyz")
 
-    q_pts = permutedims(q_pts, (5, 4, 3, 2, 1))
-    k_pts = permutedims(k_pts, (5, 4, 3, 2, 1))
-    v_pts = permutedims(v_pts, (5, 4, 3, 2, 1))
-
-    q_exp = reshape(q_pts, size(q_pts, 1), size(q_pts, 2), 1, size(q_pts, 3), size(q_pts, 4), size(q_pts, 5))
-    k_exp = reshape(k_pts, size(k_pts, 1), 1, size(k_pts, 2), size(k_pts, 3), size(k_pts, 4), size(k_pts, 5))
-    pt_att = q_exp .- k_exp
-    pt_att = sum(pt_att .^ 2; dims=6)
+    # Point distance attention
+    q_exp = rearrange(q_pts, einops"B Q H P xyz -> B Q 1 H P xyz")
+    k_exp = rearrange(k_pts, einops"B K H P xyz -> B 1 K H P xyz")
+    pt_att = sum((q_exp .- k_exp) .^ 2; dims=6)
 
     head_weights = NNlib.softplus.(m.head_weights)
     point_variance = max(Float32(m.no_qk_points), 1f0) * 9f0 / 2f0
     head_weights = head_weights .* sqrt(1f0 / point_variance)
     hw = reshape(head_weights, 1, 1, 1, m.no_heads, 1, 1)
-    pt_att = sum(pt_att .* hw; dims=5) .* (-0.5f0)
-    pt_att = dropdims(pt_att; dims=(5, 6))
-    pt_att = permutedims(pt_att, (1, 4, 2, 3))
-    a = a .+ pt_att
+    pt_att = dropdims(sum(pt_att .* hw; dims=5) .* (-0.5f0); dims=(5, 6))
+    a = a .+ rearrange(pt_att, einops"B Q K H -> B H Q K")
 
-    square_mask = reshape(mask, size(mask, 1), 1, size(mask, 2)) .* reshape(mask, 1, size(mask, 1), size(mask, 2))
-    square_mask = permutedims(square_mask, (3, 1, 2))
-    square_mask = -m.inf .* (1f0 .- square_mask)
-    a = a .+ reshape(square_mask, size(square_mask, 1), 1, size(square_mask, 2), size(square_mask, 3))
+    # Square mask
+    square_mask = rearrange(mask, einops"Q B -> Q 1 B") .* rearrange(mask, einops"K B -> 1 K B")
+    square_mask = -m.inf .* (1f0 .- rearrange(square_mask, einops"Q K B -> B Q K"))
+    a = a .+ rearrange(square_mask, einops"B Q K -> B 1 Q K")
     a = a .* sqrt(1f0 / 3f0)
     a = NNlib.softmax(a; dims=4)
 
-    v_bhlc = permutedims(v, (4, 2, 3, 1))
-    a3 = reshape(permutedims(a, (3, 4, 1, 2)), L, L, :)
-    v3 = permutedims(reshape(v_bhlc, B * H, L, C), (2, 3, 1))
-    o3 = NNlib.batched_mul(a3, v3)
-    o = reshape(o3, L, C, B, H)
-    o = permutedims(o, (3, 1, 4, 2))
-    o = permutedims(o, (1, 2, 4, 3))
-    o = reshape(o, B, L, H * C)
+    # Scalar value aggregation
+    a3 = rearrange(a, einops"B H Q K -> Q K (B H)")
+    v3 = rearrange(v, einops"C H L B -> L C (B H)")
+    o = rearrange(NNlib.batched_mul(a3, v3), einops"L C (B H) -> B L (C H)"; B)
 
-    v_pts_x = _view_last1(v_pts, 1)
-    v_pts_y = _view_last1(v_pts, 2)
-    v_pts_z = _view_last1(v_pts, 3)
+    # Point value aggregation (combined xyz)
+    vp = rearrange(v_pts, einops"B L H P xyz -> L (P xyz) (B H)")
+    o_pt = rearrange(NNlib.batched_mul(a3, vp),
+        einops"L (P xyz) (B H) -> B L H P xyz"; P=m.no_v_points, xyz=3, B)
 
-    vpx = permutedims(v_pts_x, (2, 4, 1, 3))
-    vpy = permutedims(v_pts_y, (2, 4, 1, 3))
-    vpz = permutedims(v_pts_z, (2, 4, 1, 3))
+    # Apply inverse rigid transform
+    o_pt = invert_apply_rigid(r, rearrange(o_pt, einops"B L H P xyz -> xyz P H L B"))
+    o_pt = rearrange(o_pt, einops"xyz P H L B -> B L H P xyz")
 
-    vpx3 = reshape(vpx, L, m.no_v_points, :)
-    vpy3 = reshape(vpy, L, m.no_v_points, :)
-    vpz3 = reshape(vpz, L, m.no_v_points, :)
-
-    o_px = NNlib.batched_mul(a3, vpx3)
-    o_py = NNlib.batched_mul(a3, vpy3)
-    o_pz = NNlib.batched_mul(a3, vpz3)
-
-    o_px = reshape(o_px, L, m.no_v_points, B, m.no_heads)
-    o_py = reshape(o_py, L, m.no_v_points, B, m.no_heads)
-    o_pz = reshape(o_pz, L, m.no_v_points, B, m.no_heads)
-
-    o_px = permutedims(o_px, (3, 1, 4, 2))
-    o_py = permutedims(o_py, (3, 1, 4, 2))
-    o_pz = permutedims(o_pz, (3, 1, 4, 2))
-
-    o_pt = cat(o_px, o_py, o_pz; dims=5)
-    o_pt = invert_apply_rigid(r, permutedims(o_pt, (5, 4, 3, 2, 1)))
-    o_pt = permutedims(o_pt, (5, 4, 3, 2, 1))
-
+    # Point norms
     o_pt_norm = sqrt.(sum(o_pt .^ 2; dims=5) .+ m.eps)
-    o_pt_norm = dropdims(o_pt_norm; dims=5)
-    o_pt_norm = permutedims(o_pt_norm, (1, 2, 4, 3))
-    o_pt_norm = reshape(o_pt_norm, size(o_pt_norm, 1), size(o_pt_norm, 2), m.no_heads * m.no_v_points)
+    o_pt_norm = rearrange(dropdims(o_pt_norm; dims=5), einops"B L H P -> B L (P H)")
 
-    o_pt = permutedims(o_pt, (1, 2, 4, 3, 5))
-    o_pt = reshape(o_pt, size(o_pt)[1:end-3]..., m.no_heads * m.no_v_points, 3)
-    o_px = _view_last1(o_pt, 1)
-    o_py = _view_last1(o_pt, 2)
-    o_pz = _view_last1(o_pt, 3)
+    # Point xyz for output
+    o_pt_flat = rearrange(o_pt, einops"B L H P xyz -> B L (P H) xyz")
+    o_px = _view_last1(o_pt_flat, 1)
+    o_py = _view_last1(o_pt_flat, 2)
+    o_pz = _view_last1(o_pt_flat, 3)
 
-    a_t = permutedims(a, (1, 2, 4, 3))
-    a_exp = reshape(a_t, size(a_t, 1), size(a_t, 2), size(a_t, 3), size(a_t, 4), 1)
-    z_swap = permutedims(z, (4, 3, 2, 1))
-    z_exp = reshape(z_swap, size(z_swap, 1), 1, size(z_swap, 2), size(z_swap, 3), size(z_swap, 4))
-    o_pair = sum(a_exp .* z_exp; dims=3)
-    o_pair = dropdims(o_pair; dims=3)
-    o_pair = permutedims(o_pair, (1, 3, 2, 4))
-    o_pair = permutedims(o_pair, (1, 2, 4, 3))
-    o_pair = reshape(o_pair, size(o_pair, 1), size(o_pair, 2), m.no_heads * m.c_z)
+    # Pair aggregation via einsum
+    o_pair = einsum(a, z, einops"B H Q K, Cz Q K B -> B Q H Cz")
+    o_pair = rearrange(o_pair, einops"B Q H Cz -> B Q (Cz H)")
 
-    o_feat = permutedims(o, (3, 2, 1))
-    o_px = permutedims(o_px, (3, 2, 1))
-    o_py = permutedims(o_py, (3, 2, 1))
-    o_pz = permutedims(o_pz, (3, 2, 1))
-    o_pt_norm = permutedims(o_pt_norm, (3, 2, 1))
-    o_pair = permutedims(o_pair, (3, 2, 1))
+    # Final output: all to (D, L, B) and concatenate
+    o, o_px, o_py, o_pz, o_pt_norm, o_pair =
+        rearrange.((o, o_px, o_py, o_pz, o_pt_norm, o_pair), einops"B L D -> D L B")
 
-    concat = cat(o_feat, o_px, o_py, o_pz, o_pt_norm, o_pair; dims=1)
-    return m.linear_out(concat)
+    return m.linear_out(cat(o, o_px, o_py, o_pz, o_pt_norm, o_pair; dims=1))
 end

@@ -18,10 +18,7 @@ end
 
 function (m::PointProjection)(activations, rigids)
     raw = m.linear(activations)
-    H = m.no_heads
-    P = m.num_points
-    raw = reshape(raw, P, H, 3, size(raw, 2), size(raw, 3))
-    points_local = permutedims(raw, (3, 1, 2, 4, 5))
+    points_local = rearrange(raw, einops"(P H xyz) L B -> xyz P H L B"; P=m.num_points, H=m.no_heads, xyz=3)
     points_global = apply_rigid(rigids, points_local)
     return points_global
 end
@@ -45,21 +42,7 @@ end
 
 function (m::PointProjectionMultimer)(activations::AbstractArray, rigids)
     raw = m.linear(activations)  # (3*P*H, L, B)
-    P = m.num_points
-    H = m.no_heads
-    raw = reshape(raw, 3 * P, H, size(raw, 2), size(raw, 3))  # (3P, H, L, B)
-
-    x = view(raw, 1:P, :, :, :)
-    y = view(raw, (P + 1):(2P), :, :, :)
-    z = view(raw, (2P + 1):(3P), :, :, :)
-
-    points_local = cat(
-        reshape(x, 1, P, H, size(raw, 3), size(raw, 4)),
-        reshape(y, 1, P, H, size(raw, 3), size(raw, 4)),
-        reshape(z, 1, P, H, size(raw, 3), size(raw, 4));
-        dims=1,
-    )  # (3, P, H, L, B)
-
+    points_local = rearrange(raw, einops"(xyz P H) L B -> xyz P H L B"; xyz=3, P=m.num_points)
     points_global = apply_rigid(rigids, points_local)
     return points_global
 end

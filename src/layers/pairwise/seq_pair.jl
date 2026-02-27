@@ -20,9 +20,8 @@ function (m::SequenceToPair)(s)
     d = size(s, 1) ÷ 2
     q = @view s[1:d, :, :]
     k = @view s[d+1:2d, :, :]
-    L, B = size(q, 2), size(q, 3)
-    q_exp = reshape(q, d, 1, L, B)
-    k_exp = reshape(k, d, L, 1, B)
+    q_exp = rearrange(q, einops"D L B -> D 1 L B")
+    k_exp = rearrange(k, einops"D L B -> D L 1 B")
     x = cat(q_exp .* k_exp, q_exp .- k_exp; dims=1)
     return m.o_proj(x)
 end
