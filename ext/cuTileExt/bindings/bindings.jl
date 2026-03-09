@@ -26,3 +26,11 @@ include("softmax.jl")
 include("linear.jl")
 
 include("newton_schulz.jl")
+
+include("block_sparse_in_proj.jl")
+
+include("block_sparse_out_proj.jl")
+
+include("feedforward/top_multihead.jl")
+
+include("top_k_gating.jl")

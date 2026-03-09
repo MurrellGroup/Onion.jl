@@ -111,3 +111,64 @@ Each step applies `Y = aX + bXXᵀX + cXXᵀXXᵀX` (tall) or the wide variant.
 """
 @primitive newton_schulz
 include("newton_schulz.jl")
+
+"""
+    block_sparse_in_proj(w, x, i)
+
+Block-sparse in-projection: select per-head weights and project shared input.
+
+- `w`: `(E, D, H)` — per-head weight bank
+- `x`: `(D, L)` — shared input
+- `i`: `(k, L)` — head indices per slot and token
+
+Returns `(E, k*L)` flat:  `y[:, (tok-1)*k + slot] = w[:, :, i[slot,tok]] * x[:, tok]`
+"""
+@primitive block_sparse_in_proj
+include("block_sparse_in_proj.jl")
+
+"""
+    block_sparse_out_proj(w, y, i)
+
+Block-sparse out-projection: select per-head weights and accumulate across slots.
+
+- `w`: `(D, E, H)` — per-head weight bank
+- `y`: `(E, k*L)` — flat per-slot input
+- `i`: `(k, L)` — head indices per slot and token
+
+Returns `(D, L)`:  `z[:, tok] = Σ_slot w[:, :, i[slot,tok]] * y[:, (tok-1)*k + slot]`
+"""
+@primitive block_sparse_out_proj
+include("block_sparse_out_proj.jl")
+
+include("block_sparse_proj_dispatch.jl")
+
+"""
+    top_multihead_ffn(Q, K, U, V, act, i[, R])
+
+Sparse-head multihead gated FFN. Like `multihead_ffn` but only `k` of `H`
+heads fire per token, selected by index matrix `i`.
+
+- `Q`: `(D, k, L)` — per active head-slot input
+- `K`: `(I, D, H)` — gate weights for all H heads
+- `U`: `(I, D, H)` — up weights
+- `V`: `(D, I, H)` — down weights
+- `act`: activation function (e.g. `swish`)
+- `i`: `(k, L)` integer head indices
+- `R`: `(E, k, L)` optional per-expert routing weights. `I = E * D_E`.
+
+Returns `(D, k, L)`.
+"""
+@primitive top_multihead_ffn
+include("feedforward/top_multihead.jl")
+
+"""
+    top_k_gating(scores::AbstractMatrix, k::Integer) → (indices, values)
+
+Select top-k heads per token.
+
+- `scores`: `(H, L)` — raw router logits
+- `indices`: `(k, L)` — top-k head indices per token (Int32)
+- `values`: `(k, L)` — raw scores at the selected positions
+"""
+@primitive top_k_gating
+include("top_k_gating.jl")
