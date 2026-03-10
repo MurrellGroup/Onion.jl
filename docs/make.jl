@@ -4,7 +4,7 @@ using Documenter
 DocMeta.setdocmeta!(Onion, :DocTestSetup, :(using Onion); recursive=true)
 
 makedocs(; 
-    modules=[Onion, Onion.UNet],
+    modules=[Onion],
     authors="murrellb <murrellb@gmail.com> and contributors",
     sitename="Onion.jl",
     format=Documenter.HTML(;
