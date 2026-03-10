@@ -100,12 +100,12 @@ julia> gate(Y, X) |> size
 end
 
 function Modulator(
-    (in, out)::Pair{Int,Int}, σ=sigmoid;
-    op=*, bias=false, shape=nothing, init=Flux.kaiming_uniform
+    (in, out)::Pair{Int,Int}, σ=NNlib.sigmoid;
+    op=*, bias=false, shape=nothing, kws...
 )
     shape = isnothing(shape) ? out : shape
     prod(shape) == out || throw(DimensionMismatch("prod(shape) must be equal to out"))
-    W = Linear(in => out; bias, init)
+    W = Linear(in => out; bias, kws...)
     return Modulator(W, σ, op, shape)
 end
 

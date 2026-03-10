@@ -83,9 +83,6 @@ kv_cache(layer::TransformerBlock, args...) = kv_cache(layer.attention, args...)
     rope
 end
 
-using Flux: @layer
-@layer STRINGBlock
-
 function STRINGBlock(block::TransformerBlock, d_coords::Int; kws...)
     rope = STRINGRoPE(block.attention.head_dim, block.attention.n_heads, d_coords; kws...)
     return STRINGBlock(block, rope)

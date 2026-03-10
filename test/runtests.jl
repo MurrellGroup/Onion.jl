@@ -2,7 +2,7 @@ using Onion
 using ParallelTestRunner
 
 const init_code = quote
-    using Onion, Test, Flux, LinearAlgebra, Statistics
+    using Onion, Test, LinearAlgebra, Statistics
     using Einops: einsum, @einops_str
     using SpecialFunctions: erf
 end

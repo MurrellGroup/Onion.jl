@@ -1,6 +1,9 @@
 using ChainRulesCore
 using Einops
 using LinearAlgebra
+using Random
+
+with_default_rng(init) = (args...; kws...) -> init(Random.default_rng(), args...; kws...)
 
 """
     ofeltype(v::Number, ::AbstractArray{T}) where T = convert(T, v)

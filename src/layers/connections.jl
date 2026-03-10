@@ -27,10 +27,6 @@ operator(::ResidualConnection) = (+)
 
 # ──── Generalized Hyper-Connections ────
 
-using LinearAlgebra
-using ChainRulesCore
-using NNlib
-
 """
     GeneralizedHyperConnection(n, m)
     (ghc::GeneralizedHyperConnection)(layer, h::AbstractArray)

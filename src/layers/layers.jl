@@ -1,5 +1,10 @@
+import WeightInitializers as WI
+
 include("linear.jl")
 export Linear, BlockLinear
+
+include("embedding.jl")
+export Embedding
 
 include("norm.jl")
 export LayerNorm, LayerNormFirst, BGLayerNorm

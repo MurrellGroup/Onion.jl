@@ -30,7 +30,7 @@ Computes pairwise relative position embeddings from residue indices.
 end
 
 function RelativePosition(bins::Int, pairwise_state_dim::Int)
-    embedding = Flux.Embedding(2 * bins + 2, pairwise_state_dim)
+    embedding = Embedding(2 * bins + 2 => pairwise_state_dim)
     return RelativePosition(bins, embedding)
 end
 
@@ -120,7 +120,7 @@ function FoldingTrunk(; cfg::FoldingTrunkConfig=FoldingTrunkConfig())
     recycle_bins = 15
     recycle_s_norm = LayerNorm(c_s)
     recycle_z_norm = LayerNorm(c_z)
-    recycle_disto = Flux.Embedding(recycle_bins, c_z)
+    recycle_disto = Embedding(recycle_bins => c_z)
     recycle_disto.weight[:, 1] .= 0f0
 
     sm_cfg = cfg.structure_module

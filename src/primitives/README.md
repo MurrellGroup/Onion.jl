@@ -34,7 +34,7 @@ Backends are concrete structs, all directly subtyping `Backend`:
 ```
 Backend (abstract root)
 ├── DefaultBackend   (CPU/GPU fallback implementations)
-├── NNopBackend      (KernelAbstractions-based — NNop/FluxML)
+├── NNopBackend      (KernelAbstractions-based — FluxML/NNop.jl)
 └── cuTileBackend    (cuTile DSL-generated CUDA kernels)
 ```
 

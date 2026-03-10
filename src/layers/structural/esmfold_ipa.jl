@@ -1,5 +1,7 @@
 # ──── ESMFoldIPA (Invariant Point Attention) ────
 
+using NNlib: batched_mul, softplus
+
 """
     ESMFoldIPA(c_s, c_z, c_hidden, no_heads, no_qk_points, no_v_points; inf=1e5, eps=1e-8)
 
@@ -46,7 +48,7 @@ function (m::ESMFoldIPA)(s, z, r, mask)
     # Scalar attention: Q·Kᵀ via batched_mul
     q3 = rearrange(q, einops"C H L B -> L C (B H)")
     k3 = rearrange(k, einops"C H L B -> C L (B H)")
-    a = rearrange(NNlib.batched_mul(q3, k3), einops"Q K (B H) -> B H Q K"; B)
+    a = rearrange(batched_mul(q3, k3), einops"Q K (B H) -> B H Q K"; B)
     a = a .* sqrt(1f0 / (3f0 * m.c_hidden))
 
     # Pair bias
@@ -65,7 +67,7 @@ function (m::ESMFoldIPA)(s, z, r, mask)
     k_exp = rearrange(k_pts, einops"B K H P xyz -> B 1 K H P xyz")
     pt_att = sum((q_exp .- k_exp) .^ 2; dims=6)
 
-    head_weights = NNlib.softplus.(m.head_weights)
+    head_weights = softplus.(m.head_weights)
     head_weights = head_weights .* sqrt(1f0 / (3f0 * (m.no_qk_points * 9f0 / 2f0)))
     hw = reshape(head_weights, 1, 1, 1, m.no_heads, 1, 1)
     pt_att = dropdims(sum(pt_att .* hw; dims=5) .* (-0.5f0); dims=(5, 6))
@@ -81,11 +83,11 @@ function (m::ESMFoldIPA)(s, z, r, mask)
     # Scalar value aggregation
     a3 = rearrange(a, einops"B H Q K -> Q K (B H)")
     v3 = rearrange(v, einops"C H L B -> L C (B H)")
-    o = rearrange(NNlib.batched_mul(a3, v3), einops"L C (B H) -> B L (C H)"; B)
+    o = rearrange(batched_mul(a3, v3), einops"L C (B H) -> B L (C H)"; B)
 
     # Point value aggregation (combined xyz)
     vp = rearrange(v_pts, einops"B L H P xyz -> L (P xyz) (B H)")
-    o_pt = rearrange(NNlib.batched_mul(a3, vp),
+    o_pt = rearrange(batched_mul(a3, vp),
         einops"L (P xyz) (B H) -> B L H P xyz"; P=m.no_v_points, xyz=3, B)
 
     # Apply inverse rigid transform
@@ -166,7 +168,7 @@ function (m::MultimerInvariantPointAttention)(s::AbstractArray, z::AbstractArray
     # Scalar attention: Q·Kᵀ via batched_mul
     q3 = rearrange(q, einops"C H L B -> L C (B H)")
     k3 = rearrange(k, einops"C H L B -> C L (B H)")
-    a = rearrange(NNlib.batched_mul(q3, k3), einops"Q K (B H) -> B H Q K"; B)
+    a = rearrange(batched_mul(q3, k3), einops"Q K (B H) -> B H Q K"; B)
     a = a .* sqrt(1f0 / max(Float32(m.c_hidden), 1f0))
 
     # Pair bias
@@ -181,7 +183,7 @@ function (m::MultimerInvariantPointAttention)(s::AbstractArray, z::AbstractArray
     k_exp = rearrange(k_pts, einops"B K H P xyz -> B 1 K H P xyz")
     pt_att = sum((q_exp .- k_exp) .^ 2; dims=6)
 
-    head_weights = NNlib.softplus.(m.head_weights)
+    head_weights = softplus.(m.head_weights)
     point_variance = max(Float32(m.no_qk_points), 1f0) * 9f0 / 2f0
     head_weights = head_weights .* sqrt(1f0 / point_variance)
     hw = reshape(head_weights, 1, 1, 1, m.no_heads, 1, 1)
@@ -198,11 +200,11 @@ function (m::MultimerInvariantPointAttention)(s::AbstractArray, z::AbstractArray
     # Scalar value aggregation
     a3 = rearrange(a, einops"B H Q K -> Q K (B H)")
     v3 = rearrange(v, einops"C H L B -> L C (B H)")
-    o = rearrange(NNlib.batched_mul(a3, v3), einops"L C (B H) -> B L (C H)"; B)
+    o = rearrange(batched_mul(a3, v3), einops"L C (B H) -> B L (C H)"; B)
 
     # Point value aggregation (combined xyz)
     vp = rearrange(v_pts, einops"B L H P xyz -> L (P xyz) (B H)")
-    o_pt = rearrange(NNlib.batched_mul(a3, vp),
+    o_pt = rearrange(batched_mul(a3, vp),
         einops"L (P xyz) (B H) -> B L H P xyz"; P=m.no_v_points, xyz=3, B)
 
     # Apply inverse rigid transform

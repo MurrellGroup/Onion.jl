@@ -34,8 +34,8 @@ Accepts and returns `Rigid` frames.
 end
 
 function Framemover(dim::Int; init_gain = 0.1f0)
-    loc_decode = Linear(dim => 3; bias=false, init=Flux.glorot_uniform(gain = init_gain))
-    rot_decode = Linear(dim => 3; bias=false, init=Flux.glorot_uniform(gain = init_gain))
+    loc_decode = Linear(dim => 3; bias=false, init=with_default_rng(WI.glorot_uniform(gain=init_gain)))
+    rot_decode = Linear(dim => 3; bias=false, init=with_default_rng(WI.glorot_uniform(gain=init_gain)))
     return Framemover(loc_decode, rot_decode)
 end
 

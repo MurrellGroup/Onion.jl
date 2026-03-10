@@ -2,7 +2,7 @@
     Linear(
         d1 => d2;
         bias::Bool=true,
-        init=Flux.glorot_uniform
+        init=WeightInitializers.glorot_uniform
     )
 
 See also [`BlockLinear`](@ref).
@@ -13,7 +13,7 @@ end
 
 function Linear(;
     in_size::Int, out_size::Int,
-    bias::Bool=true, init=Flux.glorot_uniform
+    bias::Bool=true, init=with_default_rng(WI.glorot_uniform)
 )
     W = init(out_size, in_size)
     b = bias ? zeros_like(W, out_size) : false
@@ -38,7 +38,8 @@ end
 """
     BlockLinear(
         d1 => d2, k;
-        bias::Bool=true, init=Flux.glorot_uniform)
+        bias::Bool=true,
+        init=WeightInitializers.glorot_uniform)
 
 A block-diagonal version of a linear layer, comprising `k` blocks,
 where the blocks are of size `(d2 ÷ k, d1 ÷ k)`.
@@ -55,7 +56,7 @@ output_size(bl::BlockLinear) = size(bl.weight, 1) * size(bl.weight, 3)
 
 function BlockLinear(
     (d1, d2)::Pair{Int,Int}, k::Int;
-    bias::Bool=true, init=Flux.glorot_uniform
+    bias::Bool=true, init=with_default_rng(WI.glorot_uniform)
 )
     d1 % k == 0 || throw(ArgumentError("d1 must be divisible by k"))
     d2 % k == 0 || throw(ArgumentError("d2 must be divisible by k"))

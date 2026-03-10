@@ -15,7 +15,7 @@ function TriangleAttention(c_in::Int, c_hidden::Int, no_heads::Int; starting::Bo
     bias_proj = Linear(c_in => no_heads, bias=false)
     attn      = Attention(c_in, no_heads;
         head_dim = c_hidden,
-        g1_gate  = Modulator(c_in => no_heads * c_hidden, sigmoid),
+        g1_gate  = Modulator(c_in => no_heads * c_hidden, NNlib.sigmoid),
     )
     return TriangleAttention(norm, bias_proj, attn, starting)
 end

@@ -1,3 +1,5 @@
+using NNlib: relu
+
 @testset "StarGLU layer" begin
     @testset "basic forward" begin
         ff = StarGLU(8, 16)

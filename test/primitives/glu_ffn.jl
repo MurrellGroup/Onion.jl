@@ -1,3 +1,5 @@
+using NNlib: swish, relu
+
 @testset "glu_ffn primitive" begin
     d_in, d_hidden, batch = 8, 16, 3
     x = randn(Float32, d_in, batch)
@@ -11,9 +13,8 @@
     end
 
     @testset "correctness (manual reference)" begin
-        act = Flux.swish
-        y = Onion.glu_ffn(DefaultBackend(), x, W_gate, W_up, W_down, act)
-        ref = W_down * (act.(W_gate * x) .* (W_up * x))
+        y = Onion.glu_ffn(DefaultBackend(), x, W_gate, W_up, W_down, swish)
+        ref = W_down * (swish.(W_gate * x) .* (W_up * x))
         @test y ≈ ref
     end
 

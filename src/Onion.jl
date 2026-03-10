@@ -10,10 +10,8 @@ using Rewrap: Keep, Split
 
 using ConcreteStructs: @concrete
 using ChainRulesCore: @ignore_derivatives
-@republic using NNlib: swish
-@republic using BFloat16s: BFloat16
 
-using Flux: Flux
+@republic import Optimisers: trainable
 
 include("utils/utils.jl")
 

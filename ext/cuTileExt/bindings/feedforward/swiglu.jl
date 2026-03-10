@@ -1,4 +1,4 @@
-using Onion: swish
+using NNlib: swish
 
 function swiglu_ffn(X, Wᵍ, Wᵘ, Wᵈ; kws...)
     O = similar(X, size(Wᵈ, 1), size(X, 2))

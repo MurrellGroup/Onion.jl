@@ -5,7 +5,7 @@ Pkg.add(name="cuTile", version="0.0.4")
 
 using CUDA
 using cuTile
-using Onion: swish
+using NNlib: swish
 
 @testset "cuTile Extension" begin
     @testset "softmax matches DefaultBackend" begin
@@ -65,8 +65,8 @@ using Onion: swish
         Kg = CUDA.randn(Float32, 12, 8, 2)
         Ku = CUDA.randn(Float32, 12, 8, 2)
         V = CUDA.randn(Float32, 8, 12, 2)
-        ref = Onion.multihead_ffn(DefaultBackend(), Q, Kg, Ku, V, Onion.swish)
-        y = Onion.multihead_ffn(cuTileBackend(), Q, Kg, Ku, V, Onion.swish)
+        ref = Onion.multihead_ffn(DefaultBackend(), Q, Kg, Ku, V, NNlib.swish)
+        y = Onion.multihead_ffn(cuTileBackend(), Q, Kg, Ku, V, NNlib.swish)
         @test y ≈ ref rtol=1f-3
     end
 

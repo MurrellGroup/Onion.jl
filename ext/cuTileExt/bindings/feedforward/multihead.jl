@@ -1,3 +1,5 @@
+using NNlib: swish
+
 function multihead_ffn(Q, K, U, V; R = nothing, kws...)
     O = similar(Q)
     multihead_ffn!(O, Q, K, U, V; R, kws...)
@@ -14,7 +16,7 @@ end
 # ── Non-expert dispatch ──────────────────────────────────────────────
 
 function Onion.multihead_ffn(::cuTileBackend,
-    Q, K, U, V, ::typeof(Onion.swish)
+    Q, K, U, V, ::typeof(swish)
 )
     return multihead_ffn(Q, K, U, V)
 end
@@ -22,7 +24,7 @@ end
 function CRC.rrule(
     ::typeof(Onion.multihead_ffn), ::cuTileBackend,
     Q::AbstractArray, K::AbstractArray, U::AbstractArray, V::AbstractArray,
-    ::typeof(Onion.swish)
+    ::typeof(swish)
 )
     O = multihead_ffn(Q, K, U, V)
     function mhffn_pullback(Ō)
@@ -35,7 +37,7 @@ end
 # ── Expert dispatch ──────────────────────────────────────────────────
 
 function Onion.multihead_ffn(::cuTileBackend,
-    Q, K, U, V, ::typeof(Onion.swish), R
+    Q, K, U, V, ::typeof(swish), R
 )
     return multihead_ffn(Q, K, U, V; R)
 end
@@ -43,7 +45,7 @@ end
 function CRC.rrule(
     ::typeof(Onion.multihead_ffn), ::cuTileBackend,
     Q::AbstractArray, K::AbstractArray, U::AbstractArray, V::AbstractArray,
-    ::typeof(Onion.swish), R::AbstractArray
+    ::typeof(swish), R::AbstractArray
 )
     O = multihead_ffn(Q, K, U, V; R)
     function mhffn_expert_pullback(Ō)

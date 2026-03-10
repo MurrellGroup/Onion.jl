@@ -1,3 +1,5 @@
+using NNlib: swish
+
 """
     Transition(dim, hidden=4*dim; out_dim=dim)
 

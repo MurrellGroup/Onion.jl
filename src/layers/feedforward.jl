@@ -1,5 +1,7 @@
+using NNlib: swish
+
 """
-    StarGLU(dim::Int, ff_hidden_dim::Int; act=Flux.swish)
+    StarGLU(dim::Int, ff_hidden_dim::Int; act=swish)
 
 Gated Linear Unit with flexible activation function (default: `swish`, making it a SwiGLU layer as used in Llama3).
 """
@@ -9,7 +11,7 @@ end
 
 function StarGLU(;
     hidden_size::Int, intermediate_size::Int, hidden_size_out::Int=hidden_size,
-    act = Flux.swish,
+    act = swish,
 )
     up = Linear(hidden_size => intermediate_size, bias=false)
     gate = Linear(hidden_size => intermediate_size, bias=false)

@@ -25,7 +25,7 @@ function AttentionPairBias(
     attn = Attention(c_s, num_heads;
         qkv_bias = true,
         qk_norm  = use_qk_norm,
-        g1_gate  = Modulator(c_s => num_heads * (c_s ÷ num_heads), sigmoid),
+        g1_gate  = Modulator(c_s => num_heads * (c_s ÷ num_heads), NNlib.sigmoid),
     )
     if compute_pair_bias
         proj_z_norm = LayerNorm(c_z)

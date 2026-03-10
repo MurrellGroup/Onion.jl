@@ -15,8 +15,6 @@ const TileArray3{T} = TileArray{T,3}
 const TileArray4{T} = TileArray{T,4}
 const TileArray5{T} = TileArray{T,5}
 
-using DLFP8Types
-
 #==============================================================
   ┌───────────────┬────────────┬───────────────┬────────────┐
   │    eltype     │ arithmetic │  tensorcore   │ accumulate │
@@ -37,8 +35,6 @@ using DLFP8Types
 
 arithmetic_type(T::Type) = T
 arithmetic_type(::Type{TFloat32}) = Float32
-arithmetic_type(::Type{Float8_E4M3FN}) = Float16
-arithmetic_type(::Type{Float8_E5M2}) = Float16
 
 tensorcore_type(T::Type) = T
 tensorcore_type(::Type{Float32}) = TFloat32
@@ -47,8 +43,6 @@ accumulate_type(T::Type) = T
 accumulate_type(::Type{TFloat32}) = Float32
 accumulate_type(::Type{BFloat16}) = Float32
 accumulate_type(::Type{Float16}) = Float16
-accumulate_type(::Type{Float8_E4M3FN}) = Float16
-accumulate_type(::Type{Float8_E5M2}) = Float16
 
 @inline function swizzle_2d(M, N, tm, tn, GROUP_SIZE_M, bid)
   num_bid_m = cld(M, Int32(tm))

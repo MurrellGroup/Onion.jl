@@ -2,7 +2,7 @@
 #
 # Forward:  O = W_down @ (silu(W_gate @ X) ⊙ (W_up @ X))
 #
-# Layout (Flux Dense convention):
+# Layout:
 #   X:      (D, N)       — hidden × tokens  (N = seq × batch, reshaped by wrapper)
 #   W_gate: (K, D)       — intermediate × hidden
 #   W_up:   (K, D)       — intermediate × hidden

@@ -1,11 +1,10 @@
 using Einops: einsum, @einops_str
-using ..Onion: swish
 
 function multihead_ffn(::DefaultBackend,
-    Q,     # (D, H, L...)
-    K,     # (I, D, H) — gate weight
-    U,     # (I, D, H) — up weight
-    V,     # (D, I, H) — down weight
+    Q::AbstractArray,     # (D, H, L...)
+    K::AbstractArray,     # (I, D, H) — gate weight
+    U::AbstractArray,     # (I, D, H) — up weight
+    V::AbstractArray,     # (D, I, H) — down weight
     act,
 )
     ϕ = act.(einsum(K, Q, einops"i d h, d h ... -> i h ...")) .*
@@ -17,12 +16,12 @@ end
 using Rewrap
 
 function multihead_ffn(::DefaultBackend,
-    Q,     # (D, H, L...)
-    K,     # (E*D_E, D, H) — gate weights, experts flattened
-    U,     # (E*D_E, D, H) — up weights, experts flattened
-    V,     # (D, E*D_E, H) — down weights, experts flattened
+    Q::AbstractArray,     # (D, H, L...)
+    K::AbstractArray,     # (E*D_E, D, H) — gate weights, experts flattened
+    U::AbstractArray,     # (E*D_E, D, H) — up weights, experts flattened
+    V::AbstractArray,     # (D, E*D_E, H) — down weights, experts flattened
     act,
-    R,     # (E, H, L...) — router weights
+    R::AbstractArray,     # (E, H, L...) — router weights
 )
     ϕ = act.(einsum(K, Q, einops"i d h, d h ... -> i h ...")) .*
              einsum(U, Q, einops"i d h, d h ... -> i h ...")

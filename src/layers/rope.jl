@@ -1,6 +1,3 @@
-using Flux: @layer
-
-
 # ──── RoPE ────
 
 """
@@ -21,12 +18,12 @@ rope = RoPE(dim ÷ n_heads, 1000)
 h = t(h, 1, rope[1:seqlen]) #Note the subsetting to match seqlen
 ```
 """
-struct RoPE{A<:AbstractArray}
+struct RoPE{A<:AbstractArray} <: Layer
     cos::A
     sin::A
 end
 
-@layer RoPE trainable=()
+trainable(::RoPE) = (;)
 
 Base.getindex(rope::RoPE, i) = RoPE(selectdim(rope.cos, 2, i), selectdim(rope.sin, 2, i))
 
@@ -70,13 +67,13 @@ end
 
 # ──── MultidimRoPE ────
 
-struct MultidimRoPE
+struct MultidimRoPE <: Layer
     theta::Float32
 end
 
 MultidimRoPE(; theta=10000f0) = MultidimRoPE(theta)
 
-@layer MultidimRoPE trainable=()
+trainable(::MultidimRoPE) = (;)
 
 """
     MultidimRoPE(; theta=10000f0)
@@ -150,15 +147,13 @@ x_rot = rope(x, positions)
 !!! note
     As this needs to be learnable it should preferably be used with the STRINGBlock.
 """
-@concrete struct STRINGRoPE
+@concrete struct STRINGRoPE <: Layer
     head_dim::Int
     n_heads::Int
     d_coords::Int
     thetas
     A_param
 end
-
-@layer STRINGRoPE
 
 function STRINGRoPE(head_dim::Int, n_heads::Int, d_coords::Int; init_scale=0.001f0, theta=10000f0)
     @assert iseven(head_dim) "Head dimension must be even."
