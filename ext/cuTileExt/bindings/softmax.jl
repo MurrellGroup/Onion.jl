@@ -17,13 +17,3 @@ function CRC.rrule(::typeof(Onion.softmax), ::cuTileBackend,
     end
     return y, softmax_pullback
 end
-
-#=
-XXX: should we have these kinds of methods?
-function Onion.softmax(backend::cuTileBackend,
-    x::AbstractArray,
-)
-    @assert !(x isa AbstractMatrix)
-    return @asmatrix Onion.softmax(backend, $x)
-end
-=#
