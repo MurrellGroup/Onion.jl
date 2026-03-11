@@ -35,3 +35,6 @@ include("structural/structural.jl")
 
 include("ipa.jl")
 export Framemover, IPAblock, CrossFrameIPA, pair_encode
+
+include("deltanet.jl")
+export DeltaNet, DeltaNetCache, deltanet_cache

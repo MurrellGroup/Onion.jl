@@ -26,3 +26,7 @@ include("softmax.jl")
 include("linear.jl")
 
 include("newton_schulz.jl")
+
+include("recurrent/deltanet.jl")
+
+include("recurrent/causal_conv1d.jl")
