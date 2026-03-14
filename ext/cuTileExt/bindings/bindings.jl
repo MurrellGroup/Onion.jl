@@ -7,10 +7,6 @@ function (p::Onion.Primitive)(::cuTileBackend, args...; kws...)
     return p(DefaultBackend(), args...; kws...)
 end
 
-function (p::Onion.Primitive)(::cuTileBackend, r::Onion.Rules, args...; kws...)
-    return p(cuTileBackend(), args...; kws...)
-end
-
 include("attention/attention.jl")
 
 include("feedforward/multihead.jl")

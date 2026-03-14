@@ -1,4 +1,4 @@
-function combine_projections(::DefaultBackend,
+function _combine_projections(::DefaultBackend,
     a::AbstractArray{T,4}, b::AbstractArray{T,4}, outgoing::Bool,
 ) where T
     return einsum(a, b, outgoing ?

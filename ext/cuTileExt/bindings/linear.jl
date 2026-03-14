@@ -28,14 +28,14 @@ function ∇linear(Ȳ, X, W, B)
     return X̄, W̄, B̄
 end
 
-function Onion.linear(::cuTileBackend,
+function Onion._linear(::cuTileBackend,
     X::AbstractMatrix, W::AbstractMatrix, B::Union{AbstractVector,Bool};
     kws...
 )
     return linear(X, W, B; kws...)
 end
 
-function CRC.rrule(::typeof(Onion.linear), ::cuTileBackend,
+function CRC.rrule(::typeof(Onion._linear), ::cuTileBackend,
     X::AbstractMatrix, W::AbstractMatrix, B::Union{AbstractVector,Bool},
 )
     Y = linear(X, W, B)

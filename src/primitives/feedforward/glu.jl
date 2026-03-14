@@ -1,4 +1,4 @@
-function glu_ffn(::DefaultBackend,
+function _glu_ffn(::DefaultBackend,
     x::AbstractMatrix,
     W_gate::AbstractMatrix, W_up::AbstractMatrix, W_down::AbstractMatrix,
     act = swish

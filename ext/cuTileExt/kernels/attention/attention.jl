@@ -2,8 +2,8 @@ function mha_fwd(
     Q::TileArray4, K::TileArray4, V::TileArray4, O::TileArray4,
     M::Optional{TileArray3{Float32}}, L::Optional{TileArray3{Float32}},
     B::Optional{TileArray4},
-    k_lengths::TileVector{Int32},
-    q_lengths::TileVector{Int32},
+    k_lengths::Optional{TileVector{Int32}},
+    q_lengths::Optional{TileVector{Int32}},
     qk_scale::Float32,
     input_pos::Int32,
     H::Int,
@@ -20,7 +20,7 @@ function mha_fwd(
     b, h = fldmod1(hb, H)
     hₖ = cld(h, QUERY_GROUP_SIZE)
 
-    q_len = q_lengths[b]
+    q_len = isnothing(q_lengths) ? size(Q, 2) : q_lengths[b]
     (i - 1i32) * TILE_M >= q_len && return
 
     offs_m = reshape((i - 1i32) * TILE_M .+ (ct.arange((TILE_M,), Int32) .- 1i32) .+ input_pos, (1, TILE_M))
@@ -32,7 +32,7 @@ function mha_fwd(
 
     q = ct.load(Q, (1, i, h, b), (Dk, TILE_M); padding_mode)
 
-    k_len = k_lengths[b]
+    k_len = isnothing(k_lengths) ? size(K, 2) : k_lengths[b]
     m_end = input_pos + i * TILE_M
 
     if CAUSAL
@@ -102,7 +102,7 @@ function mha_bwd_preprocess(
     i, hb = ct.bid(1), ct.bid(2)
     b, h = cld(hb, H), mod1(hb, H)
 
-    q_len = q_lengths[b]
+    q_len = isnothing(q_lengths) ? size(Q, 2) : q_lengths[b]
     (i - 1i32) * TILE_M >= q_len && return
 
     ō = ct.load(Ō, (1, i, h, b), (Dv, TILE_M); padding_mode)
@@ -146,8 +146,8 @@ function mha_bwd(
     b, h = fldmod1(hb, H)
     hₖ = cld(h, QUERY_GROUP_SIZE)
 
-    k_len = k_lengths[b]
-    q_len = q_lengths[b]
+    k_len = isnothing(k_lengths) ? size(K, 2) : k_lengths[b]
+    q_len = isnothing(q_lengths) ? size(Q, 2) : q_lengths[b]
 
     q_tiles = cld(q_len, TILE_M)
     kv_tiles = cld(k_len, TILE_N)
@@ -246,13 +246,6 @@ function flash_attention!(O,
     M = similar(Q, Float32, SeqLen_Q, Heads, Batch)
     L = similar(Q, Float32, SeqLen_Q, Heads, Batch)
 
-    if isnothing(k_lengths)
-        k_lengths = fill!(similar(Q, Int32, Batch), SeqLen_K)
-    end
-    if isnothing(q_lengths)
-        q_lengths = fill!(similar(Q, Int32, Batch), SeqLen_Q)
-    end
-
     query_group_size = Heads ÷ Heads_KV
     qk_scale = Float32(1 / sqrt(Dk))
     input_pos = Int32(0)
@@ -312,9 +305,6 @@ function ∇flash_attention!(
     @assert size(O, 1) == Dv
     @assert size(Ō, 1) == Dv
     @assert iszero(Heads % Heads_KV)
-
-    k_lengths = @something k_lengths fill!(similar(Q, Int32, Batch), SeqLen_K)
-    q_lengths = @something q_lengths fill!(similar(Q, Int32, Batch), SeqLen_Q)
 
     query_group_size = Heads ÷ Heads_KV
     qk_scale = Float32(1 / sqrt(Dk))

@@ -1,4 +1,4 @@
-function Onion.attention(::NNopBackend,
+function Onion._attention(::NNopBackend,
     Q::AbstractArray, K::AbstractArray, V::AbstractArray;
     causal::Bool
 )

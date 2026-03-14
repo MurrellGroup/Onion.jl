@@ -1,6 +1,6 @@
 name = "OnionCore"
 uuid = "42a94c36-64b5-4594-9f04-7bc0bc5c1701"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["AntonOresten <antonoresten@proton.me>"]
 
 [workspace]

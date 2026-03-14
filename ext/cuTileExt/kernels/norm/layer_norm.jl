@@ -23,6 +23,7 @@ function layer_norm_fwd(
     Mean::TileVector{Float32}, Rstd::TileVector{Float32},
     eps::Float32, TILE_M::Int
 )
+    padding_mode = ct.PaddingMode.Zero
     bid_n = ct.bid(1)
     num_tiles = ct.num_tiles(X, 1, (TILE_M, 1))
     M = size(X, 1)
@@ -31,7 +32,7 @@ function layer_norm_fwd(
     mean = ct.full((1, TILE_M), 0.0f0, Float32)
     i = 1i32
     while i <= num_tiles
-        tx = reshape(ct.load(X, (i, bid_n), (TILE_M, 1); padding_mode=ct.PaddingMode.Zero), (1, TILE_M))
+        tx = reshape(ct.load(X, (i, bid_n), (TILE_M, 1); padding_mode), (1, TILE_M))
         mean = mean .+ tx
         i += 1i32
     end
@@ -42,7 +43,7 @@ function layer_norm_fwd(
     var = ct.full((1, TILE_M), 0.0f0, Float32)
     i = 1i32
     while i <= num_tiles
-        tx = reshape(ct.load(X, (i, bid_n), (TILE_M, 1); padding_mode=ct.PaddingMode.Zero), (1, TILE_M))
+        tx = reshape(ct.load(X, (i, bid_n), (TILE_M, 1); padding_mode), (1, TILE_M))
         # Mask for valid elements
         mask = reshape(((i - 1i32) * Int32(TILE_M) .+ ct.arange((TILE_M,), Int32)) .<= M, (1, TILE_M))
         centered_tx = ifelse.(mask, tx .- mean, 0.0f0)
@@ -56,9 +57,9 @@ function layer_norm_fwd(
     # Normalize and apply affine transformation
     i = 1i32
     while i <= num_tiles
-        tx = reshape(ct.load(X, (i, bid_n), (TILE_M, 1); padding_mode=ct.PaddingMode.Zero), (1, TILE_M))
-        tw = reshape(ct.load(W, i, (TILE_M,); padding_mode=ct.PaddingMode.Zero), (1, TILE_M))
-        tb = reshape(ct.load(B, i, (TILE_M,); padding_mode=ct.PaddingMode.Zero), (1, TILE_M))
+        tx = reshape(ct.load(X, (i, bid_n), (TILE_M, 1); padding_mode), (1, TILE_M))
+        tw = reshape(ct.load(W, i, (TILE_M,); padding_mode), (1, TILE_M))
+        tb = reshape(ct.load(B, i, (TILE_M,); padding_mode), (1, TILE_M))
         ty = (tx .- mean) .* rstd
         ty = ty .* tw .+ tb
         ct.store(Y, (i, bid_n), reshape(ty, (TILE_M, 1)))

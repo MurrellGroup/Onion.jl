@@ -1,4 +1,4 @@
-function Onion.newton_schulz(::cuTileBackend,
+function Onion._newton_schulz(::cuTileBackend,
     X::AbstractArray{T}, coefficients,
 ) where T
     input_is_matrix = ndims(X) == 2

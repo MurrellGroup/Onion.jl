@@ -3,6 +3,9 @@ using Einops
 using LinearAlgebra
 using Random
 
+unval(::Val{x}) where {x} = x
+unval(x) = x
+
 with_default_rng(init) = (args...; kws...) -> init(Random.default_rng(), args...; kws...)
 
 """

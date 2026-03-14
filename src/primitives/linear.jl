@@ -1,4 +1,4 @@
-function linear(::DefaultBackend,
+function _linear(::DefaultBackend,
     x::AbstractMatrix, W::AbstractMatrix, b::Union{AbstractVector,Bool}
 )
     y = W * x

@@ -6,7 +6,6 @@ using Republic
 @republic reexport=true using OnionCore
 
 using OnionStyle
-using Rewrap: Keep, Split
 
 using ConcreteStructs: @concrete
 using ChainRulesCore: @ignore_derivatives
@@ -24,9 +23,8 @@ export NNopBackend
 export cuTileBackend
 
 include("primitives/primitives.jl")
-public Primitive
+public Primitive, @primitive
 public backend, backend!, withbackend
-public @primitive
 
 include("layers/layers.jl")
 

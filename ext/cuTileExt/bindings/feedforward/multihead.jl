@@ -15,14 +15,14 @@ end
 
 # ── Non-expert dispatch ──────────────────────────────────────────────
 
-function Onion.multihead_ffn(::cuTileBackend,
+function Onion._multihead_ffn(::cuTileBackend,
     Q, K, U, V, ::typeof(swish)
 )
     return multihead_ffn(Q, K, U, V)
 end
 
 function CRC.rrule(
-    ::typeof(Onion.multihead_ffn), ::cuTileBackend,
+    ::typeof(Onion._multihead_ffn), ::cuTileBackend,
     Q::AbstractArray, K::AbstractArray, U::AbstractArray, V::AbstractArray,
     ::typeof(swish)
 )
@@ -36,14 +36,14 @@ end
 
 # ── Expert dispatch ──────────────────────────────────────────────────
 
-function Onion.multihead_ffn(::cuTileBackend,
+function Onion._multihead_ffn(::cuTileBackend,
     Q, K, U, V, ::typeof(swish), R
 )
     return multihead_ffn(Q, K, U, V; R)
 end
 
 function CRC.rrule(
-    ::typeof(Onion.multihead_ffn), ::cuTileBackend,
+    ::typeof(Onion._multihead_ffn), ::cuTileBackend,
     Q::AbstractArray, K::AbstractArray, U::AbstractArray, V::AbstractArray,
     ::typeof(swish), R::AbstractArray
 )

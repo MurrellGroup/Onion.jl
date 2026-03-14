@@ -1,6 +1,6 @@
 using Einops: einsum, @einops_str
 
-function multihead_ffn(::DefaultBackend,
+function _multihead_ffn(::DefaultBackend,
     Q::AbstractArray,     # (D, H, L...)
     K::AbstractArray,     # (I, D, H) — gate weight
     U::AbstractArray,     # (I, D, H) — up weight
@@ -15,7 +15,7 @@ end
 
 using Rewrap
 
-function multihead_ffn(::DefaultBackend,
+function _multihead_ffn(::DefaultBackend,
     Q::AbstractArray,     # (D, H, L...)
     K::AbstractArray,     # (E*D_E, D, H) — gate weights, experts flattened
     U::AbstractArray,     # (E*D_E, D, H) — up weights, experts flattened

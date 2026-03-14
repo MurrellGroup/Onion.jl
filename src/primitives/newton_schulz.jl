@@ -1,6 +1,6 @@
 using NNlib: batched_mul!, batched_transpose
 
-function newton_schulz(::DefaultBackend,
+function _newton_schulz(::DefaultBackend,
     X::AbstractArray{T}, coefficients,
 ) where T
     input_is_matrix = ndims(X) == 2

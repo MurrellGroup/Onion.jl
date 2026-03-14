@@ -35,6 +35,10 @@ function Base.get(r::Rules, name::Symbol, default)
     return hasproperty(r, name) ? getproperty(r, name) : default
 end
 
+function Base.get(default::Function, r::Rules, name::Symbol)
+    return hasproperty(r, name) ? getproperty(r, name) : default()
+end
+
 function Base.iterate(r::Rules, i::Int=1)
     return i <= length(r) ? (r[i], i+1) : nothing
 end

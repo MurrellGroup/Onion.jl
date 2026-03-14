@@ -39,7 +39,7 @@ function ∇swiglu_ffn(Ō, X, Wᵍ, Wᵘ, Wᵈ, cache)
     return X̄, W̄ᵍ, W̄ᵘ, W̄ᵈ
 end
 
-function Onion.glu_ffn(::cuTileBackend,
+function Onion._glu_ffn(::cuTileBackend,
     X::AbstractMatrix,
     Wᵍ::AbstractMatrix, Wᵘ::AbstractMatrix, Wᵈ::AbstractMatrix,
     ::typeof(swish);
@@ -50,7 +50,7 @@ function Onion.glu_ffn(::cuTileBackend,
 end
 
 function CRC.rrule(
-    ::typeof(Onion.glu_ffn), ::cuTileBackend,
+    ::typeof(Onion._glu_ffn), ::cuTileBackend,
     X::AbstractMatrix,
     Wᵍ::AbstractMatrix, Wᵘ::AbstractMatrix, Wᵈ::AbstractMatrix,
     ::typeof(swish)

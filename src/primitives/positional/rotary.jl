@@ -1,4 +1,4 @@
-function rotary_pos_emb(::DefaultBackend, x::AbstractArray, cos::AbstractArray, sin::AbstractArray)
+function _rotary_pos_emb(::DefaultBackend, x::AbstractArray, cos::AbstractArray, sin::AbstractArray)
     d = size(x, 1)
     x1 = selectdim(x, 1, 1:d÷2)
     x2 = selectdim(x, 1, d÷2+1:d)

@@ -12,27 +12,3 @@ using Pkg
 Registry.add("https://github.com/MurrellGroup/MurrellGroupRegistry")
 Pkg.add("Onion")
 ```
-
-## Release Process
-
-This repository contains three packages registered in `MurrellGroupRegistry`:
-
-- `Onion` from the repository root
-- `OnionCore` from `lib/OnionCore`
-- `OnionStyle` from `lib/OnionStyle`
-
-To release one of them:
-
-1. Bump the version in that package's `Project.toml`.
-2. Merge the release commit to `main`.
-3. Trigger Registrator for the package you are releasing.
-
-Examples:
-
-```text
-@JuliaRegistrator register registry=MurrellGroup/MurrellGroupRegistry
-@JuliaRegistrator register registry=MurrellGroup/MurrellGroupRegistry subdir=lib/OnionCore
-@JuliaRegistrator register registry=MurrellGroup/MurrellGroupRegistry subdir=lib/OnionStyle
-```
-
-TagBot creates the matching GitHub release after the registry PR is merged.
