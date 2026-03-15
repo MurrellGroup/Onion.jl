@@ -19,7 +19,7 @@
         layer = DeltaNet(hidden_size=64, n_k_heads=2, n_v_heads=4, head_dim=8)
         cache = deltanet_cache(layer, 1)
         x = randn(Float32, 64, 1)
-        y = layer(x; cache)
+        y = Onion.decode(layer, x; cache)
         @test size(y) == (64, 1)
     end
 
@@ -27,7 +27,7 @@
         layer = DeltaNet(hidden_size=64, n_k_heads=2, n_v_heads=4, head_dim=8)
         cache = deltanet_cache(layer, 3)
         x = randn(Float32, 64, 3)
-        y = layer(x; cache)
+        y = Onion.decode(layer, x; cache)
         @test size(y) == (64, 3)
     end
 

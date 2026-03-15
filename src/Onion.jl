@@ -4,7 +4,7 @@ using Republic
 
 # bring in all public names, and reexport all exported names
 @republic reexport=true using OnionCore
-@republic import OnionCore: apply_with, forward
+@republic import OnionCore: apply_with, forward, decode
 
 using OnionStyle
 
@@ -18,8 +18,8 @@ include("utils/utils.jl")
 include("fuse.jl")
 public fuse
 
-include("inplace.jl")
-public inplace
+include("decode.jl")
+public decode
 
 include("backends.jl")
 export DefaultBackend

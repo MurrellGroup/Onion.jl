@@ -35,25 +35,22 @@ output = layer(x; cache)
     v_dim::Int  = n_v_heads * head_dim
     d_conv::Int = 2 * k_dim + v_dim
 
-    qk_proj = Linear(hidden_size => n_k_heads * head_dim * 2) # shared Q/K
+    qk_proj = Linear(hidden_size => n_k_heads * head_dim * 2)
     v_proj  = Linear(hidden_size => n_v_heads * head_dim)
-    alpha_proj = Linear(hidden_size => n_v_heads)                # gate projection
+    alpha_proj = Linear(hidden_size => n_v_heads)
     beta_proj  = Linear(hidden_size => n_v_heads)
     o_proj  = Linear(n_v_heads * head_dim => hidden_size)
 
-    # Conv1d
     conv_weight = randn(T, d_conv, kernel_size) .* T(0.02)
     conv_bias   = zeros(T, d_conv)
 
-    # Learned parameters
     A_log       = randn(T, n_v_heads) .* T(0.1)
     dt_bias     = zeros(T, n_v_heads)
 
-    # Output norm
     norm        = RMSNorm(head_dim)
 end
 
-function forward(layer::DeltaNet, r::Rules,
+function decode(layer::DeltaNet, r::Rules,
     x::AbstractArray{T};
     cache
 ) where T
@@ -73,14 +70,13 @@ function forward(layer::DeltaNet, r::Rules,
     qʰ = qʰ ./ .√(sum(abs2, qʰ, dims=1) .+ T(1e-6)) .* T(1 / sqrt(head_dim))
     kʰ = kʰ ./ .√(sum(abs2, kʰ, dims=1) .+ T(1e-6))
 
-    neg_a_exp = .-exp.(layer.A_log)
     sp_input = alpha .+ layer.dt_bias
     sp = @. ifelse(sp_input > T(20), sp_input, log1p(exp(sp_input))) # softplus
-    gate = neg_a_exp .* sp  # (n_v_heads, B) — negative, so exp(gate) < 1
+    gate = .-exp.(layer.A_log) .* sp  # (n_v_heads, B) — negative, so exp(gate) < 1
 
     β = sigmoid.(beta_raw)  # (n_v_heads, B)
 
-    output, _ = deltanet_recurrent(r, qʰ, kʰ, vʰ, β, gate, cache.recurrent_state)
+    output, _ = deltanet_recurrent_decode(r, qʰ, kʰ, vʰ, β, gate, cache.recurrent_state)
 
     # Output: RMSNorm per head, then multiply by SiLU(gate_z)
     # Note: In the full model, there's a separate gate value from the projection.

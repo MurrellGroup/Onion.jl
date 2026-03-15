@@ -1,6 +1,6 @@
 mva(a, b, acc) = reshape(muladd(a, reshape(b, (size(b, 1), 1)), acc), (size(a, 1),))
 
-function deltanet_recurrent_fwd(
+function deltanet_recurrent_decode_fwd(
     Q::TileArray3,     # (Dk, H, B)
     K::TileArray3,     # (Dk, H, B)
     V::TileArray3,     # (Dv, H, B)
@@ -60,7 +60,7 @@ function deltanet_recurrent_fwd(
     return
 end
 
-function deltanet_recurrent_step!(O, Q, K, V, Beta, Gate, S; verify=nothing)
+function deltanet_recurrent_decode_step!(O, Q, K, V, Beta, Gate, S; verify=nothing)
     Dk, H, B = size(Q)
     Dv = size(V, 1)
 
@@ -73,7 +73,7 @@ function deltanet_recurrent_step!(O, Q, K, V, Beta, Gate, S; verify=nothing)
         end
     end
 
-    autotune_launch(deltanet_recurrent_fwd,
+    autotune_launch(deltanet_recurrent_decode_fwd,
         CartesianSpace(BLOCK_DK=(8, 16, 32)),
         cfg -> (H, B),
         cfg -> (

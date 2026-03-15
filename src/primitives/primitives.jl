@@ -127,7 +127,7 @@ Each step applies `Y = aX + bXXᵀX + cXXᵀXXᵀX` (tall) or the wide variant.
 include("newton_schulz.jl")
 
 """
-    deltanet_recurrent(q, k, v, beta, gate, state) -> (output, state)
+    deltanet_recurrent_decode(q, k, v, beta, gate, state) -> (output, state)
 
 Gated DeltaNet recurrent step (decode). Updates state in-place:
     S = exp(gate) * S
@@ -135,7 +135,7 @@ Gated DeltaNet recurrent step (decode). Updates state in-place:
     S += k ⊗ delta
     output = Sᵀq
 """
-@primitive _deltanet_recurrent as deltanet_recurrent
+@primitive _deltanet_recurrent_decode as deltanet_recurrent_decode
 include("recurrent/deltanet.jl")
 
 """

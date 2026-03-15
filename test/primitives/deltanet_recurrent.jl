@@ -1,4 +1,4 @@
-@testset "deltanet_recurrent primitive" begin
+@testset "deltanet_recurrent_decode primitive" begin
     Dk, Dv, H, B = 4, 4, 2, 1
     T = Float32
 
@@ -11,7 +11,7 @@
 
     state_copy = copy(state)
 
-    output, state_out = Onion.deltanet_recurrent(DefaultBackend(), q, k, v, beta, gate, state)
+    output, state_out = Onion.deltanet_recurrent_decode(DefaultBackend(), q, k, v, beta, gate, state)
 
     @testset "output shape" begin
         @test size(output) == (Dv, H, B)
@@ -55,8 +55,8 @@
     @testset "top-level dispatch" begin
         s1 = copy(state_copy)
         s2 = copy(state_copy)
-        o1 = Onion.deltanet_recurrent(DefaultBackend(), q, k, v, beta, gate, s1)[1]
-        o2 = Onion.deltanet_recurrent(q, k, v, beta, gate, s2)[1]
+        o1 = Onion.deltanet_recurrent_decode(DefaultBackend(), q, k, v, beta, gate, s1)[1]
+        o2 = Onion.deltanet_recurrent_decode(q, k, v, beta, gate, s2)[1]
         @test o1 ≈ o2
     end
 end
