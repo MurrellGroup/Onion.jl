@@ -31,7 +31,7 @@
 
     @testset "without bias, no SiLU" begin
         state2 = randn(T, D, K, B) .* T(0.1)
-        y, _ = Onion.causal_conv1d(DefaultBackend(), x, state2, weight, false; silu=false)
+        y, _ = Onion.causal_conv1d(DefaultBackend(), x, state2, weight, nothing; silu=false)
 
         @test size(y) == (D, B)
 

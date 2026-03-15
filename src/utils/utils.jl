@@ -28,6 +28,9 @@ export splitaxis
 include("lazy.jl")
 export @lazy
 
+include("inplace.jl")
+public @!, inplace
+
 include("like.jl")
 export like, zeros_like, ones_like, falses_like, trues_like
 

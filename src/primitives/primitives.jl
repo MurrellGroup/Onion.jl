@@ -135,7 +135,7 @@ Gated DeltaNet recurrent step (decode). Updates state in-place:
     S += k ⊗ delta
     output = Sᵀq
 """
-@primitive deltanet_recurrent
+@primitive _deltanet_recurrent as deltanet_recurrent
 include("recurrent/deltanet.jl")
 
 """
@@ -144,5 +144,5 @@ include("recurrent/deltanet.jl")
 Causal depthwise conv1d state update for decode. Shifts state, inserts x,
 convolves with weight, optionally applies SiLU.
 """
-@primitive causal_conv1d
+@primitive _causal_conv1d as causal_conv1d
 include("recurrent/causal_conv1d.jl")

@@ -1,11 +1,4 @@
-# Gated DeltaNet recurrent state update kernel (decode step)
-#
-# Translated from triton_deltanet_recurrent.py. Two-pass tiled design:
-#   Pass 1: Decay state + accumulate S^T @ k
-#   Pass 2: Rank-1 update (delta rule) + output query S^T @ q
-#
-# Grid: (H, B) — one block per (head, batch)
-# State S is [Dk, Dv, H, B] mutated in-place
+mva(a, b, acc) = reshape(muladd(a, reshape(b, (size(b, 1), 1)), acc), (size(a, 1),))
 
 function deltanet_recurrent_fwd(
     Q::TileArray3,     # (Dk, H, B)
@@ -18,74 +11,51 @@ function deltanet_recurrent_fwd(
     Dk::Int, Dv::Int,
     BLOCK_DK::Int,
 )
-    h = ct.bid(1)
-    b = ct.bid(2)
+    padding_mode = ct.PaddingMode.Zero
+    h, b = ct.bid(1), ct.bid(2)
 
-    # Load scalar gate and beta for this (head, batch)
-    g = ct.load(Gate, (h, b), (1, 1)) → Float32
-    decay = exp.(g)
-    beta = ct.load(Beta, (h, b), (1, 1)) → Float32
+    g = Gate[h, b] → Float32
+    decay = exp(g)
+    beta = Beta[h, b] → Float32
 
-    # Load value vector [Dv]
-    v = ct.load(V, (1, h, b), (Dv, 1, 1)) → Float32
-    v = reshape(v, (Dv,))
+    v = ct.load(V, (1, h, b), (Dv,)) → Float32
 
-    num_dk_tiles = cld(Int32(Dk), Int32(BLOCK_DK))
+    num_tiles = cld(Int32(Dk), Int32(BLOCK_DK))
 
-    # ===== Pass 1: Decay state + accumulate S^T @ k =====
-    accumulated = ct.zeros((Dv,), Float32)
-    dk_tile = 1i32
-    while dk_tile <= num_dk_tiles
-        # Load state tile [BLOCK_DK, Dv]
-        s_tile = ct.load(S, (dk_tile, 1, h, b), (BLOCK_DK, Dv); padding_mode=ct.PaddingMode.Zero) → Float32
+    # Decay state + accumulate S^T @ k
+    acc = ct.zeros((Dv,), Float32)
+    i = 1i32
+    while i <= num_tiles
+        s = ct.load(S, (i, 1, h, b), (BLOCK_DK, Dv); padding_mode) → Float32
+        k = ct.load(K, (i, h, b), (BLOCK_DK,); padding_mode) → Float32
 
-        # Decay
-        s_tile = s_tile .* reshape(decay, (1, 1))
+        s = s .* decay
+        ct.store(S, (i, 1, h, b), s → eltype(S))
 
-        # Load k tile [BLOCK_DK]
-        k_tile = ct.load(K, (dk_tile, h, b), (BLOCK_DK, 1, 1); padding_mode=ct.PaddingMode.Zero) → Float32
-        k_tile = reshape(k_tile, (BLOCK_DK,))
+        acc = mva((s)ᵀ, k, acc)
 
-        # Accumulate S^T @ k: sum over BLOCK_DK dimension
-        accumulated = accumulated .+ reshape(sum(s_tile .* reshape(k_tile, (BLOCK_DK, 1)), dims=1), (Dv,))
-
-        # Store decayed state
-        ct.store(S, (dk_tile, 1, h, b), s_tile → eltype(S))
-
-        dk_tile += 1i32
+        i += 1i32
     end
 
-    # Delta = beta * (v - S^T @ k)
-    delta = reshape(beta, (1,)) .* (v .- accumulated)
+    delta = beta .* (v .- acc)
 
-    # ===== Pass 2: Rank-1 update + output query =====
+    # Rank-1 update + output query
     output = ct.zeros((Dv,), Float32)
-    dk_tile = 1i32
-    while dk_tile <= num_dk_tiles
-        # Reload decayed state (should be in L2 cache)
-        s_tile = ct.load(S, (dk_tile, 1, h, b), (BLOCK_DK, Dv); padding_mode=ct.PaddingMode.Zero) → Float32
+    i = 1i32
+    while i <= num_tiles
+        s = ct.load(S, (i, 1, h, b), (BLOCK_DK, Dv); padding_mode) → Float32
+        k = ct.load(K, (i, h, b), (BLOCK_DK,); padding_mode) → Float32
 
-        # Load k tile
-        k_tile = ct.load(K, (dk_tile, h, b), (BLOCK_DK, 1, 1); padding_mode=ct.PaddingMode.Zero) → Float32
-        k_tile = reshape(k_tile, (BLOCK_DK,))
+        s = s .+ k .* permutedims(delta)
+        ct.store(S, (i, 1, h, b), s → eltype(S))
 
-        # Rank-1 update: S += outer(k, delta)
-        s_tile = s_tile .+ reshape(k_tile, (BLOCK_DK, 1)) .* reshape(delta, (1, Dv))
+        q = ct.load(Q, (i, h, b), (BLOCK_DK,); padding_mode) → Float32
+        output = mva((s)ᵀ, q, output)
 
-        # Store updated state
-        ct.store(S, (dk_tile, 1, h, b), s_tile → eltype(S))
-
-        # Load q tile for output query
-        q_tile = ct.load(Q, (dk_tile, h, b), (BLOCK_DK, 1, 1); padding_mode=ct.PaddingMode.Zero) → Float32
-        q_tile = reshape(q_tile, (BLOCK_DK,))
-
-        # Accumulate output: S^T @ q
-        output = output .+ reshape(sum(s_tile .* reshape(q_tile, (BLOCK_DK, 1)), dims=1), (Dv,))
-
-        dk_tile += 1i32
+        i += 1i32
     end
 
-    ct.store(O, (1, h, b), reshape(output → eltype(O), (Dv, 1, 1)))
+    ct.store(O, (1, h, b), output → eltype(O))
 
     return
 end
@@ -96,14 +66,21 @@ function deltanet_recurrent_step!(O, Q, K, V, Beta, Gate, S; verify=nothing)
 
     key = (eltype(Q), Dk, Dv)
 
+    function setup()
+        saved = copy(S)
+        function reset()
+            copy!(S, saved)
+        end
+    end
+
     autotune_launch(deltanet_recurrent_fwd,
-        CartesianSpace(BLOCK_DK=(8, 16, 32, 64, 128)),
+        CartesianSpace(BLOCK_DK=(8, 16, 32)),
         cfg -> (H, B),
         cfg -> (
             Q, K, V, Beta, Gate, S, O,
             Constant(Dk), Constant(Dv),
             Constant(cfg.BLOCK_DK),
         );
-        key, verify
+        key, verify, setup
     )
 end

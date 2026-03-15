@@ -1,7 +1,9 @@
 function linear(X, W, B; Y=similar(X, size(W, 1), size(X, 2)), kws...)
-    verify = () -> let
+    function verify()
         Y_ref = Onion.linear(DefaultBackend(), X, W, B)
-        () -> isapprox(Y, Y_ref, rtol=1e-1)
+        function iscorrect()
+            isapprox(Y, Y_ref, atol=1e-1, rtol=1e-1)
+        end
     end
     linear!(W, B isa Bool ? nothing : B, X, Y; kws...)
     return Y
@@ -10,19 +12,23 @@ end
 function ∇linear(Ȳ, X, W, B)
     X̄, W̄ = similar(X), similar(W)
     B̄ = B isa Bool ? nothing : similar(B)
-    verify_x = () -> let
+    function verify_x()
         _, pb = Zygote.pullback(X→Float32, W→Float32, B→Float32) do X, W, B
             Onion.linear(DefaultBackend(), X, W, B)
         end
         X̄_ref, = pb(Ȳ)
-        () -> isapprox(X̄, X̄_ref, rtol=1e-1)
+        function iscorrect()
+            isapprox(X̄, X̄_ref, atol=1e-1, rtol=1e-1)
+        end
     end
-    verify_w = () -> let
+    function verify_w()
         _, pb = Zygote.pullback(W, X, B) do W, X, B
             Onion.linear(DefaultBackend(), X, W, B)
         end
         W̄_ref, = pb(Ȳ)
-        () -> isapprox(W̄, W̄_ref, rtol=1e-1)
+        function iscorrect()
+            isapprox(W̄, W̄_ref, atol=1e-1, rtol=1e-1)
+        end
     end
     ∇linear!(X̄, W̄, B̄, Ȳ, W, X; verify_x, verify_w)
     return X̄, W̄, B̄

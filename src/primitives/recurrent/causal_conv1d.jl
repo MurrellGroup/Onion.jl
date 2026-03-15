@@ -1,34 +1,43 @@
 using NNlib: sigmoid
 
-function causal_conv1d(::DefaultBackend,
+# Interface: x (D, B) with conv_state (D, K, B) → pass through
+function causal_conv1d(b::Backend,
+    x::AbstractArray{T,2}, conv_state::AbstractArray{T,3},
+    weight::AbstractArray{T}, bias::Optional{AbstractVector{T}} = nothing;
+    kws...
+) where T
+    _causal_conv1d(b, x, conv_state, weight, bias; kws...)
+end
+
+# x (D,) unbatched but conv_state (D, K, B) → unsqueeze x
+function causal_conv1d(b::Backend,
+    x::AbstractArray{T,1}, conv_state::AbstractArray{T,3},
+    weight::AbstractArray{T}, bias::Optional{AbstractVector{T}} = nothing;
+    kws...
+) where T
+    x = reshape(x, :, 1)
+    y, conv_state = _causal_conv1d(b, x, conv_state, weight, bias; kws...)
+    return dropdims(y; dims=2), conv_state
+end
+
+function _causal_conv1d(::DefaultBackend,
     x::AbstractArray{T},          # (D, B) — new input
     conv_state::AbstractArray{T}, # (D, K, B) — ring buffer, mutated in-place
     weight::AbstractArray{T},     # (D, K) — conv weights
-    bias::Union{AbstractVector{T}, Bool} = false;
+    bias::Optional{AbstractVector{T}};
     silu::Bool = true,
 ) where T
-    K = size(conv_state, 2)
-
-    # Shift left: state[:, i, :] = state[:, i+1, :] for i in 1:K-1
+    K = size(weight, 2)
     for i in 1:K-1
         conv_state[:, i, :] .= @view conv_state[:, i+1, :]
     end
-    # Insert new input at the end
+
     conv_state[:, K, :] .= x
 
-    # Convolve: y = sum(state .* weight, dims=2)
-    y = sum(conv_state .* reshape(weight, size(weight, 1), K, 1), dims=2)
-    y = dropdims(y, dims=2)
+    y = einsum(conv_state, weight, einops"d k b, d k -> d b")
 
-    # Bias
-    if bias !== false
-        y = y .+ bias
-    end
-
-    # SiLU activation: x * sigmoid(x)
-    if silu
-        y = y .* sigmoid.(y)
-    end
+    isnothing(bias) || (y .+= bias)
+    silu && (y .*= sigmoid.(y))
 
     return y, conv_state
 end

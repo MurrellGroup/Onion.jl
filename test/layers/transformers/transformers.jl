@@ -2,7 +2,7 @@
     @testset "Self-Attention" begin
         dim, seq_len, batch_size, n_heads = 32, 10, 4, 2
         x = randn(Float32, dim, seq_len, batch_size)
-        attn = Attention(dim, n_heads)
+        attn = Attention(; hidden_size=dim, num_heads=n_heads)
         output = attn(x)
         @test size(output) == (dim,seq_len,batch_size)
 
@@ -13,14 +13,14 @@
     @testset "Cross-Attention" begin
         dim, seq_len, batch_size, n_heads = 32, 10, 4, 2
         q, k = randn(Float32, dim, seq_len, batch_size), randn(Float32, dim, seq_len, batch_size)
-        attn = Attention(dim, n_heads)
+        attn = Attention(; hidden_size=dim, num_heads=n_heads)
         output = attn(q, k)
         @test size(output) == (dim,seq_len,batch_size)
 
         # Key of different length
         k_len = 12
         k = randn(Float32, dim, k_len, batch_size)
-        attn = Attention(dim, n_heads)
+        attn = Attention(; hidden_size=dim, num_heads=n_heads)
         output = attn(q, k)
         @test size(output) == (dim,seq_len,batch_size)
     end

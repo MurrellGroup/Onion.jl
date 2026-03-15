@@ -1,6 +1,6 @@
 @testset "DeltaNet layer" begin
     @testset "construction" begin
-        layer = DeltaNet(64, 2, 4; head_dim=8)
+        layer = DeltaNet(hidden_size=64, n_k_heads=2, n_v_heads=4, head_dim=8)
         @test layer.head_dim == 8
         @test layer.n_k_heads == 2
         @test layer.n_v_heads == 4
@@ -8,7 +8,7 @@
     end
 
     @testset "cache creation" begin
-        layer = DeltaNet(64, 2, 4; head_dim=8)
+        layer = DeltaNet(hidden_size=64, n_k_heads=2, n_v_heads=4, head_dim=8)
         cache = deltanet_cache(layer, 2)
         d_conv = 2 * 2 * 8 + 4 * 8  # 2*k_dim + v_dim
         @test size(cache.conv_state) == (d_conv, 4, 2)
@@ -16,7 +16,7 @@
     end
 
     @testset "forward pass (single token)" begin
-        layer = DeltaNet(64, 2, 4; head_dim=8)
+        layer = DeltaNet(hidden_size=64, n_k_heads=2, n_v_heads=4, head_dim=8)
         cache = deltanet_cache(layer, 1)
         x = randn(Float32, 64, 1)
         y = layer(x; cache)
@@ -24,7 +24,7 @@
     end
 
     @testset "forward pass (batch)" begin
-        layer = DeltaNet(64, 2, 4; head_dim=8)
+        layer = DeltaNet(hidden_size=64, n_k_heads=2, n_v_heads=4, head_dim=8)
         cache = deltanet_cache(layer, 3)
         x = randn(Float32, 64, 3)
         y = layer(x; cache)
@@ -32,7 +32,7 @@
     end
 
     @testset "multiple decode steps update state" begin
-        layer = DeltaNet(64, 2, 4; head_dim=8)
+        layer = DeltaNet(hidden_size=64, n_k_heads=2, n_v_heads=4, head_dim=8)
         cache = deltanet_cache(layer, 1)
         s0 = copy(cache.recurrent_state)
         layer(randn(Float32, 64, 1); cache)

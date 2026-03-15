@@ -1,17 +1,17 @@
-function Onion.deltanet_recurrent(::cuTileBackend,
-    q::AbstractArray, k::AbstractArray, v::AbstractArray,
-    beta::AbstractArray, gate::AbstractArray,
-    state::AbstractArray,
+function Onion._deltanet_recurrent(::cuTileBackend,
+    q::AbstractArray{<:Any,3}, k::AbstractArray{<:Any,3}, v::AbstractArray{<:Any,3},
+    beta::AbstractMatrix, gate::AbstractMatrix,
+    state::AbstractArray{<:Any,4},
 )
-    Dv = size(v, 1)
     O = similar(v)
 
-    verify = () -> let
-        state_copy = copy(state)
-        O_ref, _ = Onion.deltanet_recurrent(DefaultBackend(),
-            q → Float32, k → Float32, v → Float32,
-            beta → Float32, gate → Float32, copy(state) → Float32)
-        () -> isapprox(O, O_ref, rtol=1e-1)
+    function verify()
+        O_ref, state_ref = Onion._deltanet_recurrent(DefaultBackend(),
+            q, k, v, beta, gate, copy(state))
+        function iscorrect()
+            isapprox(O, O_ref, atol=1e-3, rtol=1e-3) &&
+            isapprox(state, state_ref, atol=1e-3, rtol=1e-3)
+        end
     end
 
     deltanet_recurrent_step!(O, q, k, v, beta, gate, state; verify)

@@ -1,5 +1,3 @@
-# ──── Attention ────
-
 """
     Attention(
         in_dim::Int, n_heads::Int, n_kv_heads=n_heads;
@@ -27,49 +25,40 @@ x = randn(in_dim, seq_len, batch)
 output = attn(x)
 ```
 """
-@concrete struct Attention <: Layer
-    wq; wk; wv; wo
-    q_norm; k_norm; g1_gate
-    in_dim::Int
-    head_dim::Int
-    n_heads::Int
-    n_kv_heads::Int
+@kwdef @concrete struct Attention <: Layer
+    hidden_size::Int
+    num_heads::Int
+    num_kv_heads::Int = num_heads
+    head_dim = hidden_size ÷ num_heads
+    qkv_bias = false
+    qk_norm  = false
+
+    q_norm = qk_norm ? RMSNorm(head_dim) : identity
+    k_norm = qk_norm ? RMSNorm(head_dim) : identity
+    gate = something
+
+    q_proj = Linear(hidden_size => num_heads * head_dim, bias=qkv_bias)
+    k_proj = Linear(hidden_size => num_kv_heads * head_dim, bias=qkv_bias)
+    v_proj = Linear(hidden_size => num_kv_heads * head_dim, bias=qkv_bias)
+    o_proj = Linear(num_heads * head_dim => hidden_size, bias=false)
 end
 
-function Attention(
-    in_dim::Int, n_heads::Int, n_kv_heads::Int=n_heads;
-    head_dim = in_dim ÷ n_heads, qkv_bias=false,
-    qk_norm=false,
-    q_norm=qk_norm ? RMSNorm(head_dim) : identity,
-    k_norm=qk_norm ? RMSNorm(head_dim) : identity,
-    g1_gate=something,
-    out_init_scale=1,
-)
-    @assert n_heads % n_kv_heads == 0 "n_heads must be divisible by n_kv_heads"
-    wq = Linear(in_dim => n_heads * head_dim, bias=qkv_bias)
-    wk = Linear(in_dim => n_kv_heads * head_dim, bias=qkv_bias)
-    wv = Linear(in_dim => n_kv_heads * head_dim, bias=qkv_bias)
-    wo = Linear(n_heads * head_dim => in_dim, bias=false)
-    wo.weight .*= out_init_scale
-    return Attention(wq, wk, wv, wo, q_norm, k_norm, g1_gate,
-        in_dim, head_dim, n_heads, n_kv_heads)
-end
-
-function (layer::Attention)(
-    xq, xk=xq, xv=xk;
-    rope=identity, krope=rope, cache=tuple,
+function forward(layer::Attention, r::Rules,
+    xq, xk = xq, xv = xk;
+    rope   = identity,
+    rope_k = rope,
+    cache  = tuple,
     kws...
 )
-    q, k, v = layer.wq(xq), layer.wk(xk), layer.wv(xv)
+    q, k, v = layer.q_proj(xq), layer.k_proj(xk), layer.v_proj(xv)
     q, k, v = rearrange.((q, k, v), einops"(d h) l ... -> d l h ..."; d=layer.head_dim)
     q, k = layer.q_norm(q), layer.k_norm(k)
-    q, k = rope(q), krope(k)
+    q, k = rope(q), rope_k(k)
     k, v = cache(k, v)
-    k, v = repeat.((k, v), einops"d l h ... -> d l (r h) ..."; r=layer.n_heads÷layer.n_kv_heads)
-    x = attention(q, k, v; kws...)
-    x = rearrange(x, einops"d l h ... -> (d h) l ..."; h=layer.n_heads)
-    x = layer.g1_gate(x, xq)
-    return layer.wo(x)
+    x = attention(r, q, k, v; kws...)
+    x = rearrange(x, einops"d l h ... -> (d h) l ..."; h=layer.num_heads)
+    x = layer.gate(x, xq)
+    return layer.o_proj(x)
 end
 
 
@@ -105,8 +94,8 @@ function Base.show(io::IO, ::MIME"text/plain", cache::KVCache)
 end
 
 function kv_cache(layer::Attention, len::Int, batch::Int=1)
-    k = zeros_like(layer.wq.weight, layer.head_dim, len, layer.n_kv_heads, batch)
-    v = zeros_like(layer.wv.weight, layer.head_dim, len, layer.n_kv_heads, batch)
+    k = zeros_like(layer.q_proj.weight, layer.head_dim, len, layer.num_kv_heads, batch)
+    v = zeros_like(layer.v_proj.weight, layer.head_dim, len, layer.num_kv_heads, batch)
     return KVCache(k, v)
 end
 

@@ -4,7 +4,7 @@
 Attention along one axis of a 4D pair tensor `(C, L₁, L₂, B)`.
 When `starting=true`, attends along `L₁` (rows); otherwise `L₂` (columns).
 
-Uses the existing `Attention` layer with `g1_gate=Modulator(sigmoid)` for gating.
+Uses the existing `Attention` layer with `gate=Modulator(sigmoid)` for gating.
 """
 @concrete struct TriangleAttention <: Layer
     norm; bias_proj; attn; starting::Bool
@@ -13,9 +13,11 @@ end
 function TriangleAttention(c_in::Int, c_hidden::Int, no_heads::Int; starting::Bool=true)
     norm      = LayerNorm(c_in)
     bias_proj = Linear(c_in => no_heads, bias=false)
-    attn      = Attention(c_in, no_heads;
+    attn      = Attention(;
+        hidden_size = c_in,
+        num_heads = no_heads,
         head_dim = c_hidden,
-        g1_gate  = Modulator(c_in => no_heads * c_hidden, NNlib.sigmoid),
+        gate  = Modulator(c_in => no_heads * c_hidden, NNlib.sigmoid),
     )
     return TriangleAttention(norm, bias_proj, attn, starting)
 end

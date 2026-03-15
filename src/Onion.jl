@@ -17,6 +17,9 @@ include("utils/utils.jl")
 include("fuse.jl")
 public fuse
 
+include("inplace.jl")
+public inplace
+
 include("backends.jl")
 export DefaultBackend
 export NNopBackend
