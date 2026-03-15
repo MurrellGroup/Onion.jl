@@ -35,10 +35,10 @@
         layer = DeltaNet(hidden_size=64, n_k_heads=2, n_v_heads=4, head_dim=8)
         cache = deltanet_cache(layer, 1)
         s0 = copy(cache.recurrent_state)
-        layer(randn(Float32, 64, 1); cache)
+        Onion.decode(layer, randn(Float32, 64, 1); cache)
         @test cache.recurrent_state != s0  # state should change
         s1 = copy(cache.recurrent_state)
-        layer(randn(Float32, 64, 1); cache)
+        Onion.decode(layer, randn(Float32, 64, 1); cache)
         @test cache.recurrent_state != s1  # state should change again
     end
 end

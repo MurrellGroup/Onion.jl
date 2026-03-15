@@ -13,8 +13,17 @@ apply_with(::FusedStyle, ::EagerStyle, layer::Layer, r::Rules, args...; kws...) 
     forward(layer, r, args...; kws...)
 
 # Default: strip rules for layers that don't accept them
-fuse(layer::Layer, ::Rules, args...; kws...) = fuse(layer, args...; kws...)
+fuse(layer::Layer, r::Rules, args...; kws...) = fuse(layer, args...; kws...)
 
-# Missing implementation errors
-fuse(::L, args...; kws...) where L<:Layer =
-    error("$(nameof(L)) does not implement fuse")
+# Default: inject empty rules for layers that only define the Rules variant.
+# A task-local identity guard detects the cycle when neither variant is specialized.
+function fuse(layer::Layer, args...; kws...)
+    seen = get(task_local_storage(), :_onion_fuse_seen, nothing)
+    layer === seen && throw(MethodError(fuse, (layer, args...)))
+    task_local_storage(:_onion_fuse_seen, layer)
+    try
+        return fuse(layer, Rules(), args...; kws...)
+    finally
+        task_local_storage(:_onion_fuse_seen, seen)
+    end
+end

@@ -4,7 +4,7 @@ using Republic
 
 # bring in all public names, and reexport all exported names
 @republic reexport=true using OnionCore
-@republic import OnionCore: apply_with, forward, decode
+@republic import OnionCore: apply_with, forward
 
 using OnionStyle
 
