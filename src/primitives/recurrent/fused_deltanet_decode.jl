@@ -2,6 +2,32 @@
 # Takes raw post-conv Q, K, V and all gate/norm parameters.
 # Returns output ready for o_proj (already normed and z-gated).
 
+"""
+    fused_deltanet_decode(q_raw, k_raw, v, alpha, beta_raw, z,
+                          A_log, dt_bias, norm_weight, state;
+                          head_dim, norm_eps) -> (output, state)
+
+Fused DeltaNet decode: L2-normalize Q/K, compute gate/beta, run recurrence,
+apply RMSNorm + z-gate. Returns output ready for o_proj.
+"""
+@primitive _fused_deltanet_decode as fused_deltanet_decode
+@primitive _fused_deltanet_decode! as fused_deltanet_decode!
+
+function _fused_deltanet_decode!(::DefaultBackend,
+    output::AbstractArray{T},
+    q_raw::AbstractArray{T,3}, k_raw::AbstractArray{T,3}, v::AbstractArray{T,3},
+    alpha::AbstractMatrix{T}, beta_raw::AbstractMatrix{T}, z::AbstractArray{T,3},
+    A_log::AbstractVector, dt_bias::AbstractVector, norm_weight::AbstractVector,
+    state::AbstractArray{T,4};
+    head_dim::Int, norm_eps=T(1e-6),
+) where T
+    result, state = _fused_deltanet_decode(DefaultBackend(),
+        q_raw, k_raw, v, alpha, beta_raw, z,
+        A_log, dt_bias, norm_weight, state; head_dim, norm_eps)
+    copyto!(output, result)
+    return output, state
+end
+
 function fused_deltanet_decode(b::Backend,
     q_raw::AbstractArray{T,3}, k_raw::AbstractArray{T,3}, v::AbstractArray{T,3},
     alpha::AbstractMatrix{T}, beta_raw::AbstractMatrix{T}, z::AbstractArray{T,3},

@@ -2,10 +2,35 @@
 # For each head: RMSNorm(q/k), then apply rotary embeddings to first rotary_dim dims.
 # Returns (q_normed_roped, k_normed_roped) ready for attention.
 
-function fused_qknorm_rope(b::Backend,
-    q::AbstractArray{T}, k::AbstractArray{T},       # (head_dim, 1, num_heads, ...)
+"""
+    fused_qknorm_rope(q, k, q_norm_w, k_norm_w, cos, sin;
+                      eps, offset, rotary_dim) -> (q_out, k_out)
+
+Fused QK-norm + partial RoPE. Normalizes Q/K per-head, then applies
+rotary embeddings to the first `rotary_dim` dimensions.
+"""
+@primitive _fused_qknorm_rope as fused_qknorm_rope
+@primitive _fused_qknorm_rope! as fused_qknorm_rope!
+
+function _fused_qknorm_rope!(::DefaultBackend,
+    q_out::AbstractArray{T}, k_out::AbstractArray{T},
+    q::AbstractArray{T}, k::AbstractArray{T},
     q_norm_weight::AbstractVector, k_norm_weight::AbstractVector,
-    rope_cos::AbstractArray, rope_sin::AbstractArray; # (rotary_dim/2, ...) for this position
+    rope_cos::AbstractArray, rope_sin::AbstractArray;
+    eps, offset, rotary_dim::Int,
+) where T
+    result_q, result_k = _fused_qknorm_rope(DefaultBackend(),
+        q, k, q_norm_weight, k_norm_weight, rope_cos, rope_sin;
+        eps, offset, rotary_dim)
+    copyto!(q_out, result_q)
+    copyto!(k_out, result_k)
+    return q_out, k_out
+end
+
+function fused_qknorm_rope(b::Backend,
+    q::AbstractArray{T}, k::AbstractArray{T},
+    q_norm_weight::AbstractVector, k_norm_weight::AbstractVector,
+    rope_cos::AbstractArray, rope_sin::AbstractArray;
     eps, offset, rotary_dim::Int,
 ) where T
     _fused_qknorm_rope(b, q, k, q_norm_weight, k_norm_weight, rope_cos, rope_sin;

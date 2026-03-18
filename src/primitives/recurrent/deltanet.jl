@@ -1,28 +1,28 @@
 using Einops: einsum, @einops_str
 
-# Interface: ensure all args have batch dimension before hitting primitive
-# Batched: q (Dk, H, B), beta (H, B), state (Dk, Dv, H, B) → pass through
-function deltanet_recurrent_decode(b::Backend,
-    q::AbstractArray{T,3}, k::AbstractArray{T,3}, v::AbstractArray{T,3},
-    beta::AbstractArray{T,2}, gate::AbstractArray{T,2},
-    state::AbstractArray{T,4},
-) where T
-    _deltanet_recurrent_decode(b, q, k, v, beta, gate, state)
-end
+"""
+    deltanet_recurrent_decode(q, k, v, beta, gate, state) -> (output, state)
 
-# q/k/v have batch dim but beta/gate don't — unsqueeze beta/gate
-function deltanet_recurrent_decode(b::Backend,
-    q::AbstractArray{T,2}, k::AbstractArray{T,2}, v::AbstractArray{T,2},
-    beta::AbstractArray{T,1}, gate::AbstractArray{T,1},
-    state::AbstractArray{T,4},
+Gated DeltaNet recurrent step (decode). Updates state in-place:
+    S = exp(gate) * S
+    delta = beta * (v - Sᵀk)
+    S += k ⊗ delta
+    output = Sᵀq
+"""
+@primitive _deltanet_recurrent_decode as deltanet_recurrent_decode
+@primitive _deltanet_recurrent_decode! as deltanet_recurrent_decode!
+
+function _deltanet_recurrent_decode!(::DefaultBackend,
+    output::AbstractArray{T},
+    q::AbstractArray{T}, k::AbstractArray{T}, v::AbstractArray{T},
+    beta::AbstractArray{T}, gate::AbstractArray{T},
+    state::AbstractArray{T}
 ) where T
-    q, k, v, beta, gate = reshape.((q, k, v, beta, gate), einops"... -> ... 1")
-    output, state = _deltanet_recurrent_decode(b, q, k, v, beta, gate, state)
-    output = reshape(output, einops"... 1 -> ...")
+    result, state = _deltanet_recurrent_decode(DefaultBackend(), q, k, v, beta, gate, state)
+    copyto!(output, result)
     return output, state
 end
 
-# Primitive implementation
 function _deltanet_recurrent_decode(::DefaultBackend,
     q::AbstractArray{T},    # (Dk, Hk, B)
     k::AbstractArray{T},    # (Dk, Hk, B)
@@ -48,5 +48,27 @@ function _deltanet_recurrent_decode(::DefaultBackend,
     # Output: o = S^T @ q
     output = einsum(state, q, einops"Dk Dv h ..., Dk h ... -> Dv h ...")
 
+    return output, state
+end
+
+# Interface: ensure all args have batch dimension before hitting primitive
+# Batched: q (Dk, H, B), beta (H, B), state (Dk, Dv, H, B) → pass through
+function deltanet_recurrent_decode(b::Backend,
+    q::AbstractArray{T,3}, k::AbstractArray{T,3}, v::AbstractArray{T,3},
+    beta::AbstractArray{T,2}, gate::AbstractArray{T,2},
+    state::AbstractArray{T,4},
+) where T
+    _deltanet_recurrent_decode(b, q, k, v, beta, gate, state)
+end
+
+# q/k/v have batch dim but beta/gate don't — unsqueeze beta/gate
+function deltanet_recurrent_decode(b::Backend,
+    q::AbstractArray{T,2}, k::AbstractArray{T,2}, v::AbstractArray{T,2},
+    beta::AbstractArray{T,1}, gate::AbstractArray{T,1},
+    state::AbstractArray{T,4},
+) where T
+    q, k, v, beta, gate = reshape.((q, k, v, beta, gate), einops"... -> ... 1")
+    output, state = _deltanet_recurrent_decode(b, q, k, v, beta, gate, state)
+    output = reshape(output, einops"... 1 -> ...")
     return output, state
 end

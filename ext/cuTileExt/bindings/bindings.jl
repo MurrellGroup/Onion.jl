@@ -3,12 +3,10 @@ using ChainRulesCore: ChainRulesCore as CRC, NoTangent, unthunk
 
 import Zygote
 
+# Fallback: unimplemented primitives on cuTile → DefaultBackend
 function (p::Onion.Primitive)(::cuTileBackend, args...; kws...)
     return p(DefaultBackend(), args...; kws...)
 end
-
-# TODO: make primitives mutating, and have interfaces for the mutating interface?
-# or use GPUArrays.AllocCache, but that's limiting
 
 include("attention/attention.jl")
 

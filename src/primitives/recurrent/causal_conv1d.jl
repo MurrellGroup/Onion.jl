@@ -1,5 +1,25 @@
 using NNlib: sigmoid
 
+"""
+    causal_conv1d(x, conv_state, weight, bias; silu) -> (y, conv_state)
+
+Causal depthwise conv1d state update for decode. Shifts state, inserts x,
+convolves with weight, optionally applies SiLU.
+"""
+@primitive _causal_conv1d as causal_conv1d
+@primitive _causal_conv1d! as causal_conv1d!
+
+function _causal_conv1d!(::DefaultBackend,
+    y::AbstractArray{T},
+    x::AbstractArray{T}, conv_state::AbstractArray{T},
+    weight::AbstractArray{T}, bias::Optional{AbstractVector{T}};
+    silu::Bool = true,
+) where T
+    result, conv_state = _causal_conv1d(DefaultBackend(), x, conv_state, weight, bias; silu)
+    copyto!(y, result)
+    return y, conv_state
+end
+
 # Interface: x (D, B) with conv_state (D, K, B) → pass through
 function causal_conv1d(b::Backend,
     x::AbstractArray{T,2}, conv_state::AbstractArray{T,3},

@@ -1,5 +1,33 @@
 using Einops: einsum, @einops_str
 
+"""
+    deltanet_sequence(q, k, v, beta, gate, initial_state=nothing) -> (output, final_state)
+
+Full-sequence gated DeltaNet recurrence. Processes all positions, returns
+output at every position and the final recurrent state.
+
+    q, k:          (Dk, T, H, B)
+    v:             (Dv, T, H, B)
+    beta, gate:    (H, T, B)
+    initial_state: (Dk, Dv, H, B) or nothing
+    output:        (Dv, T, H, B)
+    final_state:   (Dk, Dv, H, B)
+"""
+@primitive _deltanet_sequence as deltanet_sequence
+@primitive _deltanet_sequence! as deltanet_sequence!
+
+function _deltanet_sequence!(::DefaultBackend,
+    output::AbstractArray{T,4}, final_state::AbstractArray{T,4},
+    q::AbstractArray{T,4}, k::AbstractArray{T,4}, v::AbstractArray{T,4},
+    beta::AbstractArray{T,3}, gate::AbstractArray{T,3},
+    initial_state::Optional{AbstractArray{T,4}},
+) where T
+    result_o, result_s = _deltanet_sequence(DefaultBackend(), q, k, v, beta, gate, initial_state)
+    copyto!(output, result_o)
+    copyto!(final_state, result_s)
+    return output, final_state
+end
+
 # Interface: batched — q (Dk, T, H, B)
 function deltanet_sequence(b::Backend,
     q::AbstractArray{T,4}, k::AbstractArray{T,4}, v::AbstractArray{T,4},

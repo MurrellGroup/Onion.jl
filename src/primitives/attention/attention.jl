@@ -14,6 +14,25 @@ apply_causal_mask(a, causal) = causal ? a .+ causal_mask(a) : a
 
 k_lengths_to_mask(k_lengths, kl::Int) = (1:kl) .<= reshape(k_lengths, 1, :)
 
+"""
+    attention(
+        q, k, v;
+        causal, pair,
+        q_lengths, k_lengths)
+"""
+@primitive _attention as attention
+@primitive _attention! as attention!
+
+function _attention!(::DefaultBackend,
+    out::AbstractArray{T,4},
+    q::AbstractArray{T,4}, k::AbstractArray{T,4}, v::AbstractArray{T,4};
+    kws...
+) where T
+    result = _attention(DefaultBackend(), q, k, v; kws...)
+    copyto!(out, result)
+    return out
+end
+
 function _attention(::DefaultBackend,
     q::AbstractArray{T,4},
     k::AbstractArray{T,4},

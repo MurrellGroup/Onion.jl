@@ -1,5 +1,16 @@
 using Einops: einsum, @einops_str
 
+@primitive _multihead_ffn as multihead_ffn
+@primitive _multihead_ffn! as multihead_ffn!
+
+function _multihead_ffn!(::DefaultBackend,
+    out::AbstractArray, args...
+)
+    result = _multihead_ffn(DefaultBackend(), args...)
+    copyto!(out, result)
+    return out
+end
+
 function _multihead_ffn(::DefaultBackend,
     Q::AbstractArray,     # (D, H, L...)
     K::AbstractArray,     # (I, D, H) — gate weight
@@ -25,8 +36,6 @@ function _multihead_ffn(::DefaultBackend,
 )
     ϕ = act.(einsum(K, Q, einops"i d h, d h ... -> i h ...")) .*
              einsum(U, Q, einops"i d h, d h ... -> i h ...")
-    # ϕ: (I, H, L...) where I = E * D_E
-    # Reshape to (D_E, E, H, L...), scale by R (1, E, H, L...), flatten back
     E = size(R, 1)
     ϕ = reshape(reshape(ϕ, Split(1, (:, E)), ..) .* reshape(R, Unsqueeze(), ..), size(ϕ))
     s = einsum(V, ϕ, einops"d i h, i h ... -> d h ...")

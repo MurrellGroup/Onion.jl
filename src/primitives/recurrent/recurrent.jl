@@ -1,0 +1,6 @@
+include("deltanet.jl")
+include("fused_deltanet_decode.jl")
+include("causal_conv1d.jl")
+include("causal_conv1d_sequence.jl")
+include("deltanet_sequence.jl")
+include("fused_qknorm_rope.jl")

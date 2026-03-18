@@ -1,3 +1,20 @@
+"""
+    rotary_pos_emb(x, cos, sin)
+
+Apply rotary positional embeddings. Splits `x` along dim 1 into halves and
+applies the rotation: `[x₁·cos - x₂·sin; x₂·cos + x₁·sin]`.
+"""
+@primitive _rotary_pos_emb as rotary_pos_emb
+@primitive _rotary_pos_emb! as rotary_pos_emb!
+
+function _rotary_pos_emb!(::DefaultBackend,
+    out::AbstractArray, x::AbstractArray, cos::AbstractArray, sin::AbstractArray
+)
+    result = _rotary_pos_emb(DefaultBackend(), x, cos, sin)
+    copyto!(out, result)
+    return out
+end
+
 function _rotary_pos_emb(::DefaultBackend, x::AbstractArray, cos::AbstractArray, sin::AbstractArray)
     d = size(x, 1)
     x1 = selectdim(x, 1, 1:d÷2)
@@ -7,17 +24,3 @@ function _rotary_pos_emb(::DefaultBackend, x::AbstractArray, cos::AbstractArray,
         x2 .* cos .+ x1 .* sin,
     )
 end
-
-#=
-function CRC.rrule(::typeof(rotary_pos_emb_forward),
-                   x::CuArray, cos::AbstractArray, sin::AbstractArray)
-    y = apply_rotary_pos_emb_fused(x, cos, sin)
-    function rotary_pullback(dy_raw)
-        dy = unthunk(dy_raw)
-        # Inverse rotation: negate sin
-        dx = apply_rotary_pos_emb_fused(dy, cos, .-sin)
-        return NoTangent(), dx, NoTangent(), NoTangent()
-    end
-    return y, rotary_pullback
-end
-=#
