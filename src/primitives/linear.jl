@@ -6,10 +6,10 @@ using LinearAlgebra: mul!
 Matrix multiply with optional bias: `W * x .+ b`.
 `b` can be an `AbstractVector` or `false` (no bias).
 """
-@primitive _linear as linear
-@primitive _linear! as linear!
+@primitive linear
+@primitive linear!
 
-function _linear!(::DefaultBackend,
+function linear!(::DefaultBackend,
     y::AbstractMatrix, x::AbstractMatrix, W::AbstractMatrix, b::Union{AbstractVector,Bool}
 )
     mul!(y, W, x)
@@ -17,7 +17,7 @@ function _linear!(::DefaultBackend,
     return y
 end
 
-function _linear(::DefaultBackend,
+function linear(::DefaultBackend,
     x::AbstractMatrix, W::AbstractMatrix, b::Union{AbstractVector,Bool}
 )
     y = W * x

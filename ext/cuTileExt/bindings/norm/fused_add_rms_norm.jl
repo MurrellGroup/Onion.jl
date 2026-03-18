@@ -1,4 +1,4 @@
-function Onion._fused_add_rms_norm(::cuTileBackend,
+function Onion.fused_add_rms_norm(::cuTileBackend,
     residual::AbstractArray{T}, x::AbstractArray{T}, w::AbstractVector;
     eps, offset,
 ) where T
@@ -10,7 +10,7 @@ function Onion._fused_add_rms_norm(::cuTileBackend,
     tol = T === Float32 ? 1e-3 : 1e-1
 
     function verify()
-        new_ref, normed_ref = Onion._fused_add_rms_norm(DefaultBackend(),
+        new_ref, normed_ref = Onion.fused_add_rms_norm(DefaultBackend(),
             Array(r2d), Array(x2d), Array(w); eps, offset)
         function iscorrect()
             isapprox(Float32.(Array(NewX)), Float32.(new_ref); atol=tol, rtol=tol) &&

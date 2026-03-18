@@ -12,23 +12,23 @@ Full-sequence gated DeltaNet recurrence. Always batched:
     output:        (Dv, T, H, B)
     final_state:   (Dk, Dv, H, B)
 """
-@primitive _deltanet_sequence as deltanet_sequence
-@primitive _deltanet_sequence! as deltanet_sequence!
+@primitive deltanet_sequence
+@primitive deltanet_sequence!
 
-function _deltanet_sequence!(::DefaultBackend,
+function deltanet_sequence!(::DefaultBackend,
     output::AbstractArray{T,4}, final_state::AbstractArray{T,4},
     q::AbstractArray{T,4}, k::AbstractArray{T,4}, v::AbstractArray{T,4},
     beta::AbstractArray{T,3}, gate::AbstractArray{T,3},
     initial_state::Optional{AbstractArray{T,4}},
 ) where T
-    result_o, result_s = _deltanet_sequence(DefaultBackend(), q, k, v, beta, gate, initial_state)
+    result_o, result_s = deltanet_sequence(DefaultBackend(), q, k, v, beta, gate, initial_state)
     copyto!(output, result_o)
     copyto!(final_state, result_s)
     return output, final_state
 end
 
 # Naive sequential recurrence. Correct, simple, AD-friendly (no mutation).
-function _deltanet_sequence(::DefaultBackend,
+function deltanet_sequence(::DefaultBackend,
     q::AbstractArray{T,4},    # (Dk, L, Hk, B)
     k::AbstractArray{T,4},    # (Dk, L, Hk, B)
     v::AbstractArray{T,4},    # (Dv, L, Hv, B)

@@ -1,4 +1,4 @@
-function Onion._fused_deltanet_decode(::cuTileBackend,
+function Onion.fused_deltanet_decode(::cuTileBackend,
     q_raw::AbstractArray{<:Any,3}, k_raw::AbstractArray{<:Any,3}, v::AbstractArray{<:Any,3},
     alpha::AbstractMatrix, beta_raw::AbstractMatrix, z::AbstractArray{<:Any,3},
     A_log::AbstractVector, dt_bias::AbstractVector, norm_weight::AbstractVector,
@@ -9,7 +9,7 @@ function Onion._fused_deltanet_decode(::cuTileBackend,
     tol = eltype(q_raw) === Float32 ? 1e-3 : 1e-1
 
     function verify()
-        O_ref, S_ref = Onion._fused_deltanet_decode(DefaultBackend(),
+        O_ref, S_ref = Onion.fused_deltanet_decode(DefaultBackend(),
             Array(q_raw), Array(k_raw), Array(v),
             Array(alpha), Array(beta_raw), Array(z),
             Array(A_log), Array(dt_bias), Array(norm_weight),

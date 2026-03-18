@@ -9,17 +9,17 @@
 Fused QK-norm + partial RoPE. Normalizes Q/K per-head, then applies
 rotary embeddings to the first `rotary_dim` dimensions.
 """
-@primitive _fused_qknorm_rope as fused_qknorm_rope
-@primitive _fused_qknorm_rope! as fused_qknorm_rope!
+@primitive fused_qknorm_rope
+@primitive fused_qknorm_rope!
 
-function _fused_qknorm_rope!(::DefaultBackend,
+function fused_qknorm_rope!(::DefaultBackend,
     q_out::AbstractArray{T}, k_out::AbstractArray{T},
     q::AbstractArray{T}, k::AbstractArray{T},
     q_norm_weight::AbstractVector, k_norm_weight::AbstractVector,
     rope_cos::AbstractArray, rope_sin::AbstractArray;
     eps, offset, rotary_dim::Int,
 ) where T
-    result_q, result_k = _fused_qknorm_rope(DefaultBackend(),
+    result_q, result_k = fused_qknorm_rope(DefaultBackend(),
         q, k, q_norm_weight, k_norm_weight, rope_cos, rope_sin;
         eps, offset, rotary_dim)
     copyto!(q_out, result_q)
@@ -27,13 +27,13 @@ function _fused_qknorm_rope!(::DefaultBackend,
     return q_out, k_out
 end
 
-function _fused_qknorm_rope(::DefaultBackend,
+function fused_qknorm_rope(::DefaultBackend,
     q, k, q_norm_weight, k_norm_weight, rope_cos, rope_sin;
     eps, offset, rotary_dim,
 )
     # Norm (reshape to 2D for rms_norm, then back)
-    q_n = _rms_norm(DefaultBackend(), reshape(q, Keep(), :), q_norm_weight; eps, offset)
-    k_n = _rms_norm(DefaultBackend(), reshape(k, Keep(), :), k_norm_weight; eps, offset)
+    q_n = rms_norm(DefaultBackend(), reshape(q, Keep(), :), q_norm_weight; eps, offset)
+    k_n = rms_norm(DefaultBackend(), reshape(k, Keep(), :), k_norm_weight; eps, offset)
     q_n = reshape(q_n, size(q))
     k_n = reshape(k_n, size(k))
 
@@ -45,8 +45,8 @@ function _fused_qknorm_rope(::DefaultBackend,
     k_rot = @view k_n[1:rd, rest...]
     k_pass = @view k_n[rd+1:end, rest...]
 
-    q_rotated = _rotary_pos_emb(DefaultBackend(), q_rot, rope_cos, rope_sin)
-    k_rotated = _rotary_pos_emb(DefaultBackend(), k_rot, rope_cos, rope_sin)
+    q_rotated = rotary_pos_emb(DefaultBackend(), q_rot, rope_cos, rope_sin)
+    k_rotated = rotary_pos_emb(DefaultBackend(), k_rot, rope_cos, rope_sin)
 
     return vcat(q_rotated, q_pass), vcat(k_rotated, k_pass)
 end

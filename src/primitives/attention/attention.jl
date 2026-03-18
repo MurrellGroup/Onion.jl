@@ -19,20 +19,20 @@ k_lengths_to_mask(k_lengths, kl::Int) = (1:kl) .<= reshape(k_lengths, 1, :)
 
 Multi-head attention. Inputs must be 4D `(head_dim, seq_len, n_heads, batch)`.
 """
-@primitive _attention as attention
-@primitive _attention! as attention!
+@primitive attention
+@primitive attention!
 
-function _attention!(::DefaultBackend,
+function attention!(::DefaultBackend,
     out::AbstractArray{T,4},
     q::AbstractArray{T,4}, k::AbstractArray{T,4}, v::AbstractArray{T,4};
     kws...
 ) where T
-    result = _attention(DefaultBackend(), q, k, v; kws...)
+    result = attention(DefaultBackend(), q, k, v; kws...)
     copyto!(out, result)
     return out
 end
 
-function _attention(::DefaultBackend,
+function attention(::DefaultBackend,
     q::AbstractArray{T,4},
     k::AbstractArray{T,4},
     v::AbstractArray{T,4};

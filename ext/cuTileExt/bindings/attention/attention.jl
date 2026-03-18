@@ -58,7 +58,7 @@ function CRC.rrule(::typeof(flash_attention),
     return O, flash_attention_pullback
 end
 
-function Onion._attention(::cuTileBackend,
+function Onion.attention(::cuTileBackend,
     Q::AbstractArray, K::AbstractArray, V::AbstractArray;
     pair = nothing, kws...
 )

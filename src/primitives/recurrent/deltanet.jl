@@ -10,21 +10,21 @@ Updates state in-place:
     S += k ⊗ delta
     output = Sᵀq
 """
-@primitive _deltanet_recurrent_decode as deltanet_recurrent_decode
-@primitive _deltanet_recurrent_decode! as deltanet_recurrent_decode!
+@primitive deltanet_recurrent_decode
+@primitive deltanet_recurrent_decode!
 
-function _deltanet_recurrent_decode!(::DefaultBackend,
+function deltanet_recurrent_decode!(::DefaultBackend,
     output::AbstractArray{T},
     q::AbstractArray{T,3}, k::AbstractArray{T,3}, v::AbstractArray{T,3},
     beta::AbstractMatrix{T}, gate::AbstractMatrix{T},
     state::AbstractArray{T,4}
 ) where T
-    result, state = _deltanet_recurrent_decode(DefaultBackend(), q, k, v, beta, gate, state)
+    result, state = deltanet_recurrent_decode(DefaultBackend(), q, k, v, beta, gate, state)
     copyto!(output, result)
     return output, state
 end
 
-function _deltanet_recurrent_decode(::DefaultBackend,
+function deltanet_recurrent_decode(::DefaultBackend,
     q::AbstractArray{T,3},    # (Dk, Hk, B)
     k::AbstractArray{T,3},    # (Dk, Hk, B)
     v::AbstractArray{T,3},    # (Dv, Hv, B)

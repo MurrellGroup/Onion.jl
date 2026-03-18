@@ -1,4 +1,4 @@
-function Onion._deltanet_sequence(::cuTileBackend,
+function Onion.deltanet_sequence(::cuTileBackend,
     q::AbstractArray{<:Any,4}, k::AbstractArray{<:Any,4}, v::AbstractArray{<:Any,4},
     beta::AbstractArray{<:Any,3}, gate::AbstractArray{<:Any,3},
     initial_state::Optional{AbstractArray{<:Any,4}},
@@ -17,7 +17,7 @@ function Onion._deltanet_sequence(::cuTileBackend,
     tol = eltype(q) === Float32 ? 1e-2 : 1e-1
 
     function verify()
-        O_ref, S_ref = Onion._deltanet_sequence(DefaultBackend(),
+        O_ref, S_ref = Onion.deltanet_sequence(DefaultBackend(),
             Array(q), Array(k), Array(v), Array(beta), Array(gate),
             isnothing(initial_state) ? nothing : Array(initial_state))
         function iscorrect()

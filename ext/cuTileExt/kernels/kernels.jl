@@ -91,8 +91,6 @@ include("softmax.jl")
 
 include("linear.jl")
 
-include("newton_schulz.jl")
-
 include("recurrent/deltanet.jl")
 
 include("recurrent/fused_deltanet_decode.jl")

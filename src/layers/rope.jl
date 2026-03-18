@@ -1,3 +1,5 @@
+using NNlib: batched_transpose
+
 # ──── RoPE ────
 
 """

@@ -10,10 +10,10 @@
 Fused DeltaNet decode: L2-normalize Q/K, compute gate/beta, run recurrence,
 apply RMSNorm + z-gate. All inputs must be batched (3D for q/k/v/z, 2D for scalars).
 """
-@primitive _fused_deltanet_decode as fused_deltanet_decode
-@primitive _fused_deltanet_decode! as fused_deltanet_decode!
+@primitive fused_deltanet_decode
+@primitive fused_deltanet_decode!
 
-function _fused_deltanet_decode!(::DefaultBackend,
+function fused_deltanet_decode!(::DefaultBackend,
     output::AbstractArray{T,3},
     q_raw::AbstractArray{T,3}, k_raw::AbstractArray{T,3}, v::AbstractArray{T,3},
     alpha::AbstractMatrix{T}, beta_raw::AbstractMatrix{T}, z::AbstractArray{T,3},
@@ -21,7 +21,7 @@ function _fused_deltanet_decode!(::DefaultBackend,
     state::AbstractArray{T,4};
     head_dim::Int, norm_eps=T(1e-6),
 ) where T
-    result, state = _fused_deltanet_decode(DefaultBackend(),
+    result, state = fused_deltanet_decode(DefaultBackend(),
         q_raw, k_raw, v, alpha, beta_raw, z,
         A_log, dt_bias, norm_weight, state; head_dim, norm_eps)
     copyto!(output, result)
@@ -30,7 +30,7 @@ end
 
 using NNlib: sigmoid
 
-function _fused_deltanet_decode(::DefaultBackend,
+function fused_deltanet_decode(::DefaultBackend,
     q_raw::AbstractArray{T,3}, k_raw::AbstractArray{T,3}, v::AbstractArray{T,3},
     alpha::AbstractMatrix{T}, beta_raw::AbstractMatrix{T}, z::AbstractArray{T,3},
     A_log::AbstractVector, dt_bias::AbstractVector, norm_weight::AbstractVector,
@@ -46,7 +46,7 @@ function _fused_deltanet_decode(::DefaultBackend,
     gate = .-exp.(A_log) .* sp
     β = sigmoid.(beta_raw)
 
-    output, state = _deltanet_recurrent_decode(DefaultBackend(), q, k, v, β, gate, state)
+    output, state = deltanet_recurrent_decode(DefaultBackend(), q, k, v, β, gate, state)
 
     # RMSNorm (not zero-centered) + z-gate
     rms = .√(sum(abs2, output; dims=1) ./ size(output, 1) .+ norm_eps)

@@ -5,10 +5,10 @@ using Statistics: mean, var
 
 Layer normalization on dim 1. Input must be 2D — callers reshape if needed.
 """
-@primitive _layer_norm as layer_norm
-@primitive _layer_norm! as layer_norm!
+@primitive layer_norm
+@primitive layer_norm!
 
-function _layer_norm!(::DefaultBackend,
+function layer_norm!(::DefaultBackend,
     y::AbstractMatrix, x::AbstractMatrix, w::AbstractVector, b::AbstractVector;
     eps
 )
@@ -18,7 +18,7 @@ function _layer_norm!(::DefaultBackend,
     return y
 end
 
-function _layer_norm(::DefaultBackend,
+function layer_norm(::DefaultBackend,
     x::AbstractMatrix, w::AbstractVector, b::AbstractVector;
     eps
 )
