@@ -22,16 +22,6 @@ Multi-head attention. Inputs must be 4D `(head_dim, seq_len, n_heads, batch)`.
 @primitive attention
 @primitive attention!
 
-function attention!(::DefaultBackend,
-    out::AbstractArray{T,4},
-    q::AbstractArray{T,4}, k::AbstractArray{T,4}, v::AbstractArray{T,4};
-    kws...
-) where T
-    result = attention(DefaultBackend(), q, k, v; kws...)
-    copyto!(out, result)
-    return out
-end
-
 get_buffers(::typeof(attention), b::Backend, q, k, v; kws...) =
     (; out = similar(q, size(v, 1), size(q)[2:end]...))
 

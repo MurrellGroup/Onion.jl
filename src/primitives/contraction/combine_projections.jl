@@ -7,14 +7,6 @@ When `outgoing`, contracts as `a @ bᵀ` per channel×batch; otherwise `aᵀ @ b
 @primitive combine_projections
 @primitive combine_projections!
 
-function combine_projections!(::DefaultBackend,
-    out::AbstractArray{T,4}, a::AbstractArray{T,4}, b::AbstractArray{T,4}, outgoing::Bool,
-) where T
-    result = combine_projections(DefaultBackend(), a, b, outgoing)
-    copyto!(out, result)
-    return out
-end
-
 get_buffers(::typeof(combine_projections), b::Backend, a, args...) = (; out = similar(a))
 
 function combine_projections(b::Backend,

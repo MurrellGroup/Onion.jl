@@ -15,18 +15,6 @@ Full-sequence gated DeltaNet recurrence. Always batched:
 @primitive deltanet_sequence
 @primitive deltanet_sequence!
 
-function deltanet_sequence!(::DefaultBackend,
-    output::AbstractArray{T,4}, final_state::AbstractArray{T,4},
-    q::AbstractArray{T,4}, k::AbstractArray{T,4}, v::AbstractArray{T,4},
-    beta::AbstractArray{T,3}, gate::AbstractArray{T,3},
-    initial_state::Optional{AbstractArray{T,4}},
-) where T
-    result_o, result_s = deltanet_sequence(DefaultBackend(), q, k, v, beta, gate, initial_state)
-    copyto!(output, result_o)
-    copyto!(final_state, result_s)
-    return output, final_state
-end
-
 function get_buffers(::typeof(deltanet_sequence), b::Backend,
     q::AbstractArray{T,4}, k, v::AbstractArray{T,4}, beta, gate,
     initial_state=nothing
