@@ -14,23 +14,8 @@ function causal_conv1d_sequence!(::DefaultBackend,
     x::AbstractArray{T,3}, weight::AbstractMatrix{T}, bias::Optional{AbstractVector{T}};
     silu::Bool = true,
 ) where T
-    result = causal_conv1d_sequence(DefaultBackend(), x, weight, bias; silu)
-    copyto!(y, result)
-    return y
-end
-
-get_buffers(::typeof(causal_conv1d_sequence), b::Backend, x, weight, bias; kws...) =
-    (; y = similar(x))
-
-function causal_conv1d_sequence(::DefaultBackend,
-    x::AbstractArray{T,3},    # (D, T, B)
-    weight::AbstractMatrix{T}, # (D, K)
-    bias::Optional{AbstractVector{T}};
-    silu::Bool = true,
-) where T
     D, L, B = size(x)
     K = size(weight, 2)
-    y = similar(x)
     for t in 1:L
         t_start = max(1, t - K + 1)
         acc = zeros(T, D, B)
@@ -43,4 +28,17 @@ function causal_conv1d_sequence(::DefaultBackend,
     isnothing(bias) || (y .+= reshape(bias, :, 1, 1))
     silu && (y .= y .* sigmoid.(y))
     return y
+end
+
+get_buffers(::typeof(causal_conv1d_sequence), b::Backend, x, weight, bias; kws...) =
+    (; y = similar(x))
+
+function causal_conv1d_sequence(b::Backend,
+    x::AbstractArray{T,3}, weight::AbstractMatrix{T},
+    bias::Optional{AbstractVector{T}} = nothing;
+    silu::Bool = true,
+) where T
+    bufs = get_buffers(causal_conv1d_sequence, b, x, weight, bias; silu)
+    causal_conv1d_sequence!(b, bufs.y, x, weight, bias; silu)
+    return bufs.y
 end

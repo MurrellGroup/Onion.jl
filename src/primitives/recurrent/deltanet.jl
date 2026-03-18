@@ -19,22 +19,6 @@ function deltanet_recurrent_decode!(::DefaultBackend,
     beta::AbstractMatrix{T}, gate::AbstractMatrix{T},
     state::AbstractArray{T,4}
 ) where T
-    result, state = deltanet_recurrent_decode(DefaultBackend(), q, k, v, beta, gate, state)
-    copyto!(output, result)
-    return output, state
-end
-
-get_buffers(::typeof(deltanet_recurrent_decode), b::Backend, q, k, v, beta, gate, state) =
-    (; output = similar(v))
-
-function deltanet_recurrent_decode(::DefaultBackend,
-    q::AbstractArray{T,3},    # (Dk, Hk, B)
-    k::AbstractArray{T,3},    # (Dk, Hk, B)
-    v::AbstractArray{T,3},    # (Dv, Hv, B)
-    beta::AbstractMatrix{T},  # (Hv, B)
-    gate::AbstractMatrix{T},  # (Hv, B)
-    state::AbstractArray{T,4} # (Dk, Dv, H, B) — mutated in-place
-) where T
     state .*= exp.(reshape(gate, einops"... -> 1 1 ..."))
 
     v_per_k = cld(size(v, 2), size(k, 2))
@@ -49,7 +33,20 @@ function deltanet_recurrent_decode(::DefaultBackend,
     beta = reshape(beta, einops"... -> 1 1 ...")
     state .+= k .* (beta .* (v .- sᵀk))
 
-    output = einsum(state, q, einops"Dk Dv h ..., Dk h ... -> Dv h ...")
+    output .= einsum(state, q, einops"Dk Dv h ..., Dk h ... -> Dv h ...")
 
     return output, state
+end
+
+get_buffers(::typeof(deltanet_recurrent_decode), b::Backend, q, k, v, beta, gate, state) =
+    (; output = similar(v))
+
+function deltanet_recurrent_decode(b::Backend,
+    q::AbstractArray{T,3}, k::AbstractArray{T,3}, v::AbstractArray{T,3},
+    beta::AbstractMatrix{T}, gate::AbstractMatrix{T},
+    state::AbstractArray{T,4}
+) where T
+    bufs = get_buffers(deltanet_recurrent_decode, b, q, k, v, beta, gate, state)
+    deltanet_recurrent_decode!(b, bufs.output, q, k, v, beta, gate, state)
+    return bufs.output, state
 end

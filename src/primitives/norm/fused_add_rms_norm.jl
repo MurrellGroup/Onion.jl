@@ -26,13 +26,12 @@ end
 get_buffers(::typeof(fused_add_rms_norm), b::Backend, residual, x, w; kws...) =
     (; new_x = similar(x), normed = similar(x))
 
-function fused_add_rms_norm(b::DefaultBackend,
+function fused_add_rms_norm(b::Backend,
     residual::AbstractArray{T}, x::AbstractArray{T},
     w::AbstractVector;
     eps, offset,
 ) where T
-    new_x = residual .+ x
-    normed = rms_norm(b, reshape(new_x, Keep(), :), w; eps, offset)
-    normed = reshape(normed, size(new_x))
-    return new_x, normed
+    bufs = get_buffers(fused_add_rms_norm, b, residual, x, w; eps, offset)
+    fused_add_rms_norm!(b, bufs.new_x, bufs.normed, residual, x, w; eps, offset)
+    return bufs.new_x, bufs.normed
 end

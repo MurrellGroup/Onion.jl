@@ -20,10 +20,10 @@ end
 get_buffers(::typeof(linear), b::Backend, x, W, bias) =
     (; y = similar(x, size(W, 1), size(x, 2)))
 
-function linear(::DefaultBackend,
-    x::AbstractMatrix, W::AbstractMatrix, b::Union{AbstractVector,Bool}
+function linear(b::Backend,
+    x::AbstractMatrix, W::AbstractMatrix, bias::Union{AbstractVector,Bool}
 )
-    y = W * x
-    NNlib.bias_act!(identity, y, b)
-    return y
+    bufs = get_buffers(linear, b, x, W, bias)
+    linear!(b, bufs.y, x, W, bias)
+    return bufs.y
 end

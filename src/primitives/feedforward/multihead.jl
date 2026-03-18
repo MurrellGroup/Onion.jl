@@ -3,15 +3,19 @@ using Einops: einsum, @einops_str
 @primitive multihead_ffn
 @primitive multihead_ffn!
 
-function multihead_ffn!(::DefaultBackend,
-    out::AbstractArray, args...
-)
+function multihead_ffn!(::DefaultBackend, out::AbstractArray, args...)
     result = multihead_ffn(DefaultBackend(), args...)
     copyto!(out, result)
     return out
 end
 
 get_buffers(::typeof(multihead_ffn), b::Backend, Q, args...) = (; out = similar(Q))
+
+function multihead_ffn(b::Backend, Q::AbstractArray, args...)
+    bufs = get_buffers(multihead_ffn, b, Q, args...)
+    multihead_ffn!(b, bufs.out, Q, args...)
+    return bufs.out
+end
 
 function multihead_ffn(::DefaultBackend,
     Q::AbstractArray,     # (D, H, L...)

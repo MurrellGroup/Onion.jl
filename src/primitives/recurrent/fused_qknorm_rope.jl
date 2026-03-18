@@ -1,6 +1,4 @@
 # Fused QK-norm + partial RoPE for attention decode.
-# For each head: RMSNorm(q/k), then apply rotary embeddings to first rotary_dim dims.
-# Returns (q_normed_roped, k_normed_roped) ready for attention.
 
 """
     fused_qknorm_rope(q, k, q_norm_w, k_norm_w, cos, sin;
@@ -29,6 +27,19 @@ end
 
 get_buffers(::typeof(fused_qknorm_rope), b::Backend, q, k, args...; kws...) =
     (; q_out = similar(q), k_out = similar(k))
+
+function fused_qknorm_rope(b::Backend,
+    q::AbstractArray{T}, k::AbstractArray{T},
+    q_norm_weight::AbstractVector, k_norm_weight::AbstractVector,
+    rope_cos::AbstractArray, rope_sin::AbstractArray;
+    eps, offset, rotary_dim::Int,
+) where T
+    bufs = get_buffers(fused_qknorm_rope, b, q, k)
+    fused_qknorm_rope!(b, bufs.q_out, bufs.k_out,
+        q, k, q_norm_weight, k_norm_weight, rope_cos, rope_sin;
+        eps, offset, rotary_dim)
+    return bufs.q_out, bufs.k_out
+end
 
 function fused_qknorm_rope(::DefaultBackend,
     q, k, q_norm_weight, k_norm_weight, rope_cos, rope_sin;
