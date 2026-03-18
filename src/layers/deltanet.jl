@@ -26,7 +26,7 @@ output = layer(x; cache)
     hidden_size::Int
     n_k_heads::Int
     n_v_heads::Int   = n_k_heads
-    head_dim::Int    = 128
+    head_dim::Int    = 128 # TODO: differentiate between key and value head dim
     kernel_size::Int = 4
     T::Type          = Float32
 
@@ -84,6 +84,60 @@ function decode(layer::DeltaNet, r::Rules,
     output = layer.norm(output)
 
     output = rearrange(output, einops"d h ... -> (d h) ...")
+
+    return layer.o_proj(output)
+end
+
+
+function forward(layer::DeltaNet, r::Rules,
+    x::AbstractArray{T};
+    cache = nothing,
+) where T
+    (; head_dim, q_dim, k_dim, v_dim, n_v_heads) = layer
+
+    qk_proj = layer.qk_proj(x)       # (2*k_dim, L, ...)
+    v_proj  = layer.v_proj(x)         # (v_dim, L, ...)
+    alpha   = layer.alpha_proj(x)     # (n_v_heads, L, ...)
+    beta_raw = layer.beta_proj(x)     # (n_v_heads, L, ...)
+
+    # Causal conv1d over the full sequence
+    qkv = cat(qk_proj, v_proj; dims=1)
+    conv_out = causal_conv1d_sequence(r, qkv, layer.conv_weight, layer.conv_bias; silu=true)
+
+    q, k, v = splitaxis(conv_out, (q_dim, k_dim, v_dim))
+
+    # Reshape to per-head: (D, L, ...) → (Dh, L, H, ...)
+    qʰ, kʰ, vʰ = rearrange.((q, k, v), einops"(d h) l ... -> d l h ..."; d=head_dim)
+
+    # L2 normalize Q and K (over head dim, i.e. dim=1)
+    qʰ = qʰ ./ .√(sum(abs2, qʰ; dims=1) .+ T(1e-6)) .* T(1 / sqrt(head_dim))
+    kʰ = kʰ ./ .√(sum(abs2, kʰ; dims=1) .+ T(1e-6))
+
+    # Gate and beta
+    sp_input = alpha .+ layer.dt_bias
+    sp = @. ifelse(sp_input > T(20), sp_input, log1p(exp(sp_input)))
+    gate = .-exp.(layer.A_log) .* sp
+    β = sigmoid.(beta_raw)
+
+    # Full-sequence recurrence
+    initial_state = isnothing(cache) ? nothing : cache.recurrent_state
+    output, final_state = deltanet_sequence(r, qʰ, kʰ, vʰ, β, gate, initial_state)
+
+    # Write final state back to cache if provided
+    if !isnothing(cache)
+        cache.recurrent_state .= final_state
+        # Update conv state to last K-1 positions for decode continuation
+        K = size(layer.conv_weight, 2)
+        L = size(qkv, 2)
+        if L >= K
+            cache.conv_state .= qkv[:, L-K+1:L, size(qkv)[3:end]...]
+        end
+    end
+
+    # RMSNorm per head
+    output = layer.norm(output)
+
+    output = rearrange(output, einops"d l h ... -> (d h) l ...")
 
     return layer.o_proj(output)
 end

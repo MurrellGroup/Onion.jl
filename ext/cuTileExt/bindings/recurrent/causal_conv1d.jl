@@ -4,13 +4,14 @@ function Onion._causal_conv1d(::cuTileBackend,
     silu::Bool = true,
 )
     Y = similar(x)
+    tol = eltype(x) === Float32 ? 1e-3 : 1e-1
 
     function verify()
         Y_ref, state_ref = Onion._causal_conv1d(DefaultBackend(),
             x, copy(conv_state), weight, bias; silu)
         function iscorrect()
-            isapprox(Y, Y_ref, atol=1e-3, rtol=1e-3) &&
-            isapprox(conv_state, state_ref, atol=1e-3, rtol=1e-3)
+            isapprox(Y, Y_ref; atol=tol, rtol=tol) &&
+            isapprox(conv_state, state_ref; atol=tol, rtol=tol)
         end
     end
 

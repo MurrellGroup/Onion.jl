@@ -1,4 +1,9 @@
-mva(a, b, acc) = reshape(muladd(a, reshape(b, (size(b, 1), 1)), acc), (size(a, 1),))
+function mva(a, b, acc)
+    b = reshape(b, (size(b, 1), 1))
+    acc = reshape(acc, (size(acc, 1), 1))
+    acc′ = muladd(a, b, acc)
+    return reshape(acc′, (size(acc, 1),))
+end
 
 function deltanet_recurrent_decode_fwd(
     Q::TileArray3,     # (Dk, H, B)

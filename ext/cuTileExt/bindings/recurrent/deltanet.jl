@@ -4,13 +4,14 @@ function Onion._deltanet_recurrent_decode(::cuTileBackend,
     state::AbstractArray{<:Any,4},
 )
     O = similar(v)
+    tol = eltype(q) === Float32 ? 1e-3 : 1e-1
 
     function verify()
         O_ref, state_ref = Onion._deltanet_recurrent_decode(DefaultBackend(),
             q, k, v, beta, gate, copy(state))
         function iscorrect()
-            isapprox(O, O_ref, atol=1e-3, rtol=1e-3) &&
-            isapprox(state, state_ref, atol=1e-3, rtol=1e-3)
+            isapprox(O, O_ref; atol=tol, rtol=tol) &&
+            isapprox(state, state_ref; atol=tol, rtol=tol)
         end
     end
 

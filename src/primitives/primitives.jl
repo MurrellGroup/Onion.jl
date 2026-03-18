@@ -72,6 +72,15 @@ include("linear.jl")
 include("norm/rms_norm.jl")
 
 """
+    fused_add_rms_norm(residual, x, w; eps, offset) -> (new_x, normed)
+
+Fused residual add + RMSNorm: `new_x = residual + x`, `normed = rmsnorm(new_x, w)`.
+Returns both the raw sum (next residual) and the normalized output.
+"""
+@primitive _fused_add_rms_norm as fused_add_rms_norm
+include("norm/fused_add_rms_norm.jl")
+
+"""
     layer_norm(x::AbstractMatrix, w::AbstractVector, b::AbstractVector; eps)
 """
 @primitive _layer_norm as layer_norm
@@ -108,6 +117,16 @@ applies the rotation: `[x₁·cos - x₂·sin; x₂·cos + x₁·sin]`.
 include("positional/rotary.jl")
 
 """
+    fused_qknorm_rope(q, k, q_norm_w, k_norm_w, cos, sin;
+                      eps, offset, rotary_dim) -> (q_out, k_out)
+
+Fused QK-norm + partial RoPE. Normalizes Q/K per-head, then applies
+rotary embeddings to the first `rotary_dim` dimensions.
+"""
+@primitive _fused_qknorm_rope as fused_qknorm_rope
+include("recurrent/fused_qknorm_rope.jl")
+
+"""
     combine_projections(a, b, outgoing::Bool)
 
 Triangle multiplication contraction. `a` and `b` are (C, L, L, B) tensors.
@@ -139,6 +158,17 @@ Gated DeltaNet recurrent step (decode). Updates state in-place:
 include("recurrent/deltanet.jl")
 
 """
+    fused_deltanet_decode(q_raw, k_raw, v, alpha, beta_raw, z,
+                          A_log, dt_bias, norm_weight, state;
+                          head_dim, norm_eps) -> (output, state)
+
+Fused DeltaNet decode: L2-normalize Q/K, compute gate/beta, run recurrence,
+apply RMSNorm + z-gate. Returns output ready for o_proj.
+"""
+@primitive _fused_deltanet_decode as fused_deltanet_decode
+include("recurrent/fused_deltanet_decode.jl")
+
+"""
     causal_conv1d(x, conv_state, weight, bias; silu) -> (y, conv_state)
 
 Causal depthwise conv1d state update for decode. Shifts state, inserts x,
@@ -146,3 +176,32 @@ convolves with weight, optionally applies SiLU.
 """
 @primitive _causal_conv1d as causal_conv1d
 include("recurrent/causal_conv1d.jl")
+
+"""
+    causal_conv1d_sequence(x, weight, bias; silu) -> y
+
+Full-sequence causal depthwise conv1d. Applies conv1d causally across the
+time dimension (zero-padded left). No state — processes the whole sequence.
+
+    x:      (D, T, B)
+    weight: (D, K)
+    y:      (D, T, B)
+"""
+@primitive _causal_conv1d_sequence as causal_conv1d_sequence
+include("recurrent/causal_conv1d_sequence.jl")
+
+"""
+    deltanet_sequence(q, k, v, beta, gate, initial_state=nothing) -> (output, final_state)
+
+Full-sequence gated DeltaNet recurrence. Processes all positions, returns
+output at every position and the final recurrent state.
+
+    q, k:          (Dk, T, H, B)
+    v:             (Dv, T, H, B)
+    beta, gate:    (H, T, B)
+    initial_state: (Dk, Dv, H, B) or nothing
+    output:        (Dv, T, H, B)
+    final_state:   (Dk, Dv, H, B)
+"""
+@primitive _deltanet_sequence as deltanet_sequence
+include("recurrent/deltanet_sequence.jl")

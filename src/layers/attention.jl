@@ -44,13 +44,13 @@ output = attn(x)
 end
 
 function forward(layer::Attention, r::Rules,
-    xq, xk = xq, xv = xk;
+    xq, xk = xq;
     rope   = identity,
     rope_k = rope,
     cache  = tuple,
     kws...
 )
-    q, k, v = layer.q_proj(xq), layer.k_proj(xk), layer.v_proj(xv)
+    q, k, v = layer.q_proj(xq), layer.k_proj(xk), layer.v_proj(xk)
     q, k, v = rearrange.((q, k, v), einops"(d h) l ... -> d l h ..."; d=layer.head_dim)
     q, k = layer.q_norm(q), layer.k_norm(k)
     q, k = rope(q), rope_k(k)

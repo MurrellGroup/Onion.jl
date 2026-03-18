@@ -2,9 +2,11 @@ module Onion
 
 using Republic
 
+# TODO: alternate precision interface trait
+
 # bring in all public names, and reexport all exported names
 @republic reexport=true using OnionCore
-@republic import OnionCore: apply_with, forward
+@republic import OnionCore: LayerStyle, apply_with, forward
 
 using OnionStyle
 
