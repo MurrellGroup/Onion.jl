@@ -20,6 +20,9 @@ function causal_conv1d!(::DefaultBackend,
     return y, conv_state
 end
 
+get_buffers(::typeof(causal_conv1d), b::Backend, x, conv_state, weight, bias; kws...) =
+    (; y = similar(x))
+
 function causal_conv1d(::DefaultBackend,
     x::AbstractMatrix{T},          # (D, B)
     conv_state::AbstractArray{T,3}, # (D, K, B) — mutated in-place

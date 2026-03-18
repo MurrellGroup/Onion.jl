@@ -23,6 +23,9 @@ function fused_add_rms_norm!(b::DefaultBackend,
     return new_x, normed
 end
 
+get_buffers(::typeof(fused_add_rms_norm), b::Backend, residual, x, w; kws...) =
+    (; new_x = similar(x), normed = similar(x))
+
 function fused_add_rms_norm(b::DefaultBackend,
     residual::AbstractArray{T}, x::AbstractArray{T},
     w::AbstractVector;

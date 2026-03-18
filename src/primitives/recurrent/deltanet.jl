@@ -24,6 +24,9 @@ function deltanet_recurrent_decode!(::DefaultBackend,
     return output, state
 end
 
+get_buffers(::typeof(deltanet_recurrent_decode), b::Backend, q, k, v, beta, gate, state) =
+    (; output = similar(v))
+
 function deltanet_recurrent_decode(::DefaultBackend,
     q::AbstractArray{T,3},    # (Dk, Hk, B)
     k::AbstractArray{T,3},    # (Dk, Hk, B)

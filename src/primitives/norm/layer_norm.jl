@@ -18,6 +18,8 @@ function layer_norm!(::DefaultBackend,
     return y
 end
 
+get_buffers(::typeof(layer_norm), b::Backend, x, w, bias; kws...) = (; y = similar(x))
+
 function layer_norm(::DefaultBackend,
     x::AbstractMatrix, w::AbstractVector, b::AbstractVector;
     eps

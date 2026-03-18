@@ -15,6 +15,8 @@ function combine_projections!(::DefaultBackend,
     return out
 end
 
+get_buffers(::typeof(combine_projections), b::Backend, a, args...) = (; out = similar(a))
+
 function combine_projections(::DefaultBackend,
     a::AbstractArray{T,4}, b::AbstractArray{T,4}, outgoing::Bool,
 ) where T

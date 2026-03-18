@@ -15,6 +15,8 @@ function rotary_pos_emb!(::DefaultBackend,
     return out
 end
 
+get_buffers(::typeof(rotary_pos_emb), b::Backend, x, cos, sin) = (; out = similar(x))
+
 function rotary_pos_emb(::DefaultBackend, x::AbstractArray, cos::AbstractArray, sin::AbstractArray)
     d = size(x, 1)
     x1 = selectdim(x, 1, 1:d÷2)

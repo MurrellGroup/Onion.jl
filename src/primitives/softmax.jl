@@ -13,6 +13,8 @@ function softmax!(::DefaultBackend, y::AbstractMatrix, x::AbstractMatrix)
     return y
 end
 
+get_buffers(::typeof(softmax), b::Backend, x) = (; y = similar(x))
+
 function softmax(::DefaultBackend, x::AbstractMatrix)
     return NNlib.softmax(x; dims=1)
 end

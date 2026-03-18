@@ -18,6 +18,9 @@ function rms_norm!(::DefaultBackend, y::AbstractMatrix, x::AbstractMatrix; eps)
     return y
 end
 
+get_buffers(::typeof(rms_norm), b::Backend, x; kws...) = (; y = similar(x))
+get_buffers(::typeof(rms_norm), b::Backend, x, w; kws...) = (; y = similar(x))
+
 function rms_norm(::DefaultBackend, x::AbstractMatrix; eps)
     return Broadcast.materialize(lazyrms_norm(x; eps))
 end

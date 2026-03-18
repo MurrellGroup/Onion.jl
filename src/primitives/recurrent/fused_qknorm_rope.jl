@@ -27,6 +27,9 @@ function fused_qknorm_rope!(::DefaultBackend,
     return q_out, k_out
 end
 
+get_buffers(::typeof(fused_qknorm_rope), b::Backend, q, k, args...; kws...) =
+    (; q_out = similar(q), k_out = similar(k))
+
 function fused_qknorm_rope(::DefaultBackend,
     q, k, q_norm_weight, k_norm_weight, rope_cos, rope_sin;
     eps, offset, rotary_dim,

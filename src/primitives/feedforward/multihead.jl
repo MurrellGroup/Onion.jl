@@ -11,6 +11,8 @@ function multihead_ffn!(::DefaultBackend,
     return out
 end
 
+get_buffers(::typeof(multihead_ffn), b::Backend, Q, args...) = (; out = similar(Q))
+
 function multihead_ffn(::DefaultBackend,
     Q::AbstractArray,     # (D, H, L...)
     K::AbstractArray,     # (I, D, H) — gate weight

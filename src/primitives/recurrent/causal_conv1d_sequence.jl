@@ -19,6 +19,9 @@ function causal_conv1d_sequence!(::DefaultBackend,
     return y
 end
 
+get_buffers(::typeof(causal_conv1d_sequence), b::Backend, x, weight, bias; kws...) =
+    (; y = similar(x))
+
 function causal_conv1d_sequence(::DefaultBackend,
     x::AbstractArray{T,3},    # (D, T, B)
     weight::AbstractMatrix{T}, # (D, K)

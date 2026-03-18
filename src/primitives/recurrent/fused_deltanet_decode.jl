@@ -28,6 +28,9 @@ function fused_deltanet_decode!(::DefaultBackend,
     return output, state
 end
 
+get_buffers(::typeof(fused_deltanet_decode), b::Backend, q_raw, k_raw, v, args...; kws...) =
+    (; output = similar(v))
+
 using NNlib: sigmoid
 
 function fused_deltanet_decode(::DefaultBackend,

@@ -27,6 +27,15 @@ function deltanet_sequence!(::DefaultBackend,
     return output, final_state
 end
 
+function get_buffers(::typeof(deltanet_sequence), b::Backend,
+    q::AbstractArray{T,4}, k, v::AbstractArray{T,4}, beta, gate,
+    initial_state=nothing
+) where T
+    Dk = size(q, 1)
+    Dv, _, Hv, B = size(v)
+    (; output = similar(v), final_state = similar(v, T, Dk, Dv, Hv, B))
+end
+
 # Naive sequential recurrence. Correct, simple, AD-friendly (no mutation).
 function deltanet_sequence(::DefaultBackend,
     q::AbstractArray{T,4},    # (Dk, L, Hk, B)

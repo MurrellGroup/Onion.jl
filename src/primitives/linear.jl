@@ -17,6 +17,9 @@ function linear!(::DefaultBackend,
     return y
 end
 
+get_buffers(::typeof(linear), b::Backend, x, W, bias) =
+    (; y = similar(x, size(W, 1), size(x, 2)))
+
 function linear(::DefaultBackend,
     x::AbstractMatrix, W::AbstractMatrix, b::Union{AbstractVector,Bool}
 )

@@ -32,6 +32,9 @@ function attention!(::DefaultBackend,
     return out
 end
 
+get_buffers(::typeof(attention), b::Backend, q, k, v; kws...) =
+    (; out = similar(q, size(v, 1), size(q)[2:end]...))
+
 function attention(::DefaultBackend,
     q::AbstractArray{T,4},
     k::AbstractArray{T,4},
