@@ -5,6 +5,12 @@ using Einops: einsum, @einops_str
 
 get_buffers(::typeof(multihead_ffn), b::Backend, Q, args...) = (; out = similar(Q))
 
+function multihead_ffn(b::Backend, Q::AbstractArray, args...)
+    bufs = get_buffers(multihead_ffn, b, Q, args...)
+    multihead_ffn!(b, bufs.out, Q, args...)
+    return bufs.out
+end
+
 function multihead_ffn(::DefaultBackend,
     Q::AbstractArray,     # (D, H, L...)
     K::AbstractArray,     # (I, D, H) — gate weight

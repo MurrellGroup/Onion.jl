@@ -25,6 +25,15 @@ Multi-head attention. Inputs must be 4D `(head_dim, seq_len, n_heads, batch)`.
 get_buffers(::typeof(attention), b::Backend, q, k, v; kws...) =
     (; out = similar(q, size(v, 1), size(q)[2:end]...))
 
+function attention(b::Backend,
+    q::AbstractArray{T,4}, k::AbstractArray{T,4}, v::AbstractArray{T,4};
+    kws...
+) where T
+    bufs = get_buffers(attention, b, q, k, v; kws...)
+    attention!(b, bufs.out, q, k, v; kws...)
+    return bufs.out
+end
+
 function attention(::DefaultBackend,
     q::AbstractArray{T,4},
     k::AbstractArray{T,4},

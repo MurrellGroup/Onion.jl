@@ -14,6 +14,20 @@ apply RMSNorm + z-gate. All inputs must be batched (3D for q/k/v/z, 2D for scala
 get_buffers(::typeof(fused_deltanet_decode), b::Backend, q_raw, k_raw, v, args...; kws...) =
     (; output = similar(v))
 
+function fused_deltanet_decode(b::Backend,
+    q_raw::AbstractArray{T,3}, k_raw::AbstractArray{T,3}, v::AbstractArray{T,3},
+    alpha::AbstractMatrix{T}, beta_raw::AbstractMatrix{T}, z::AbstractArray{T,3},
+    A_log::AbstractVector, dt_bias::AbstractVector, norm_weight::AbstractVector,
+    state::AbstractArray{T,4};
+    head_dim::Int, norm_eps=T(1e-6),
+) where T
+    bufs = get_buffers(fused_deltanet_decode, b, q_raw, k_raw, v)
+    fused_deltanet_decode!(b, bufs.output,
+        q_raw, k_raw, v, alpha, beta_raw, z,
+        A_log, dt_bias, norm_weight, state; head_dim, norm_eps)
+    return bufs.output, state
+end
+
 using NNlib: sigmoid
 
 function fused_deltanet_decode(::DefaultBackend,
