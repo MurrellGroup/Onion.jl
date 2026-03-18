@@ -27,23 +27,13 @@ function _fused_qknorm_rope!(::DefaultBackend,
     return q_out, k_out
 end
 
-function fused_qknorm_rope(b::Backend,
-    q::AbstractArray{T}, k::AbstractArray{T},
-    q_norm_weight::AbstractVector, k_norm_weight::AbstractVector,
-    rope_cos::AbstractArray, rope_sin::AbstractArray;
-    eps, offset, rotary_dim::Int,
-) where T
-    _fused_qknorm_rope(b, q, k, q_norm_weight, k_norm_weight, rope_cos, rope_sin;
-        eps, offset, rotary_dim)
-end
-
 function _fused_qknorm_rope(::DefaultBackend,
     q, k, q_norm_weight, k_norm_weight, rope_cos, rope_sin;
     eps, offset, rotary_dim,
 )
-    # Norm
-    q_n = _rms_norm(DefaultBackend(), reshape(q, Keep(), :), q_norm_weight, Val(1); eps, offset)
-    k_n = _rms_norm(DefaultBackend(), reshape(k, Keep(), :), k_norm_weight, Val(1); eps, offset)
+    # Norm (reshape to 2D for rms_norm, then back)
+    q_n = _rms_norm(DefaultBackend(), reshape(q, Keep(), :), q_norm_weight; eps, offset)
+    k_n = _rms_norm(DefaultBackend(), reshape(k, Keep(), :), k_norm_weight; eps, offset)
     q_n = reshape(q_n, size(q))
     k_n = reshape(k_n, size(k))
 

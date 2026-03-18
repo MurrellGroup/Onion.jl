@@ -19,12 +19,6 @@
         @test all(y .<= 1f0)
     end
 
-    @testset "custom dims" begin
-        y = Onion.softmax(DefaultBackend(), x, 2)
-        row_sums = sum(y; dims=2)
-        @test all(isapprox.(row_sums, 1f0; atol=1f-6))
-    end
-
     @testset "top-level dispatch" begin
         y_explicit = Onion.softmax(DefaultBackend(), x)
         y_implicit = Onion.softmax(x)

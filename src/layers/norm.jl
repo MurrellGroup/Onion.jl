@@ -24,7 +24,11 @@ end
 
 LayerNorm(dim::Int; eps::T=1f-6) where T = LayerNorm(ones(T, dim), zeros(T, dim), eps)
 
-(norm::LayerNorm)(x) = layer_norm(x, norm.w, norm.b; eps=norm.eps)
+function (norm::LayerNorm)(x)
+    x′ = reshape(x, size(x, 1), :)
+    y′ = layer_norm(x′, norm.w, norm.b; eps=norm.eps)
+    return reshape(y′, size(x))
+end
 
 const LayerNormFirst = LayerNorm
 const BGLayerNorm = LayerNorm
@@ -49,7 +53,11 @@ function RMSNorm(dim::Int; T=Float32, eps=1f-5, zero_centered=false)
     RMSNorm(weight, T(eps), offset)
 end
 
-(norm::RMSNorm)(x) = rms_norm(x, norm.weight; norm.eps, norm.offset)
+function (norm::RMSNorm)(x)
+    x′ = reshape(x, size(x, 1), :)
+    y′ = rms_norm(x′, norm.weight; norm.eps, norm.offset)
+    return reshape(y′, size(x))
+end
 
 function fuse((; weight, offset, eps)::RMSNorm, x)
     @lazy (weight + offset) * x / √($mean(abs2, x; dims=1) + eps)

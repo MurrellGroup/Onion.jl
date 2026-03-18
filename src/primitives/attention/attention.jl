@@ -7,7 +7,7 @@ using ..Onion: causal_mask
 apply_pad_mask(a, b::AbstractArray) = a .+ rearrange(log.(eltype(a).(b)), einops"kl ... -> kl 1 1 ...")
 apply_pad_mask(a, ::Nothing) = a
 
-apply_pair_bias(a, b::AbstractArray) = a .+ b#rearrange(b, einops"h ql kl ... -> kl ql h ...")
+apply_pair_bias(a, b::AbstractArray) = a .+ b
 apply_pair_bias(a, ::Nothing) = a
 
 apply_causal_mask(a, causal) = causal ? a .+ causal_mask(a) : a
@@ -15,10 +15,9 @@ apply_causal_mask(a, causal) = causal ? a .+ causal_mask(a) : a
 k_lengths_to_mask(k_lengths, kl::Int) = (1:kl) .<= reshape(k_lengths, 1, :)
 
 """
-    attention(
-        q, k, v;
-        causal, pair,
-        q_lengths, k_lengths)
+    attention(q, k, v; causal, pair, q_lengths, k_lengths)
+
+Multi-head attention. Inputs must be 4D `(head_dim, seq_len, n_heads, batch)`.
 """
 @primitive _attention as attention
 @primitive _attention! as attention!
@@ -58,24 +57,4 @@ function _attention(::DefaultBackend,
     a = apply_causal_mask(a, causal)
     x = v ⊠ NNlib.softmax(a)
     return x
-end
-
-function attention(b::Backend,
-    q::AbstractArray{T,4},
-    k::AbstractArray{T,4},
-    v::AbstractArray{T,4};
-    kws...
-) where T
-    return _attention(b, q, k, v; kws...)
-end
-
-function attention(b::Backend,
-    q::AbstractArray{T,3},
-    k::AbstractArray{T,3},
-    v::AbstractArray{T,3};
-    kws...
-) where T
-    q, k, v = rearrange.((q, k, v), einops"d l h -> d l h 1")
-    x = attention(b, q, k, v; kws...)
-    return rearrange(x, einops"d l h 1 -> d l h")
 end

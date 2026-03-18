@@ -8,13 +8,13 @@
                           head_dim, norm_eps) -> (output, state)
 
 Fused DeltaNet decode: L2-normalize Q/K, compute gate/beta, run recurrence,
-apply RMSNorm + z-gate. Returns output ready for o_proj.
+apply RMSNorm + z-gate. All inputs must be batched (3D for q/k/v/z, 2D for scalars).
 """
 @primitive _fused_deltanet_decode as fused_deltanet_decode
 @primitive _fused_deltanet_decode! as fused_deltanet_decode!
 
 function _fused_deltanet_decode!(::DefaultBackend,
-    output::AbstractArray{T},
+    output::AbstractArray{T,3},
     q_raw::AbstractArray{T,3}, k_raw::AbstractArray{T,3}, v::AbstractArray{T,3},
     alpha::AbstractMatrix{T}, beta_raw::AbstractMatrix{T}, z::AbstractArray{T,3},
     A_log::AbstractVector, dt_bias::AbstractVector, norm_weight::AbstractVector,
@@ -26,32 +26,6 @@ function _fused_deltanet_decode!(::DefaultBackend,
         A_log, dt_bias, norm_weight, state; head_dim, norm_eps)
     copyto!(output, result)
     return output, state
-end
-
-function fused_deltanet_decode(b::Backend,
-    q_raw::AbstractArray{T,3}, k_raw::AbstractArray{T,3}, v::AbstractArray{T,3},
-    alpha::AbstractMatrix{T}, beta_raw::AbstractMatrix{T}, z::AbstractArray{T,3},
-    A_log::AbstractVector, dt_bias::AbstractVector, norm_weight::AbstractVector,
-    state::AbstractArray{T,4};
-    head_dim::Int, norm_eps=T(1e-6),
-) where T
-    _fused_deltanet_decode(b, q_raw, k_raw, v, alpha, beta_raw, z,
-        A_log, dt_bias, norm_weight, state; head_dim, norm_eps)
-end
-
-# Unbatched: (Dk, H) → add batch dim
-function fused_deltanet_decode(b::Backend,
-    q_raw::AbstractMatrix{T}, k_raw::AbstractMatrix{T}, v::AbstractMatrix{T},
-    alpha::AbstractVector{T}, beta_raw::AbstractVector{T}, z::AbstractMatrix{T},
-    A_log::AbstractVector, dt_bias::AbstractVector, norm_weight::AbstractVector,
-    state::AbstractArray{T,4};
-    head_dim::Int, norm_eps=T(1e-6),
-) where T
-    q3, k3, v3, z3 = reshape.((q_raw, k_raw, v, z), einops"... -> ... 1")
-    alpha2, beta2 = reshape.((alpha, beta_raw), einops"... -> ... 1")
-    output, state = _fused_deltanet_decode(b, q3, k3, v3, alpha2, beta2, z3,
-        A_log, dt_bias, norm_weight, state; head_dim, norm_eps)
-    return reshape(output, einops"... 1 -> ..."), state
 end
 
 using NNlib: sigmoid
