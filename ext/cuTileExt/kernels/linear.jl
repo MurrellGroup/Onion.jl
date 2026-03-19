@@ -21,12 +21,10 @@ function linear_kernel(
     w_order = W_TRANS ? (2, 1) : (1, 2)
     x_order = X_TRANS ? (2, 1) : (1, 2)
 
-    k = 1i32
-    while k <= num_k
+    for k in 1i32:num_k
         w = ct.load(W, (bid_m, k), (TILE_M, TILE_K); padding_mode, order=w_order)
         x = ct.load(X, (k, bid_n), (TILE_K, TILE_N); padding_mode, order=x_order)
         acc = muladd(w → Tc, x → Tc, acc)
-        k += 1i32
     end
 
     if !isnothing(B)

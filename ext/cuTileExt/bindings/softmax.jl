@@ -1,17 +1,16 @@
-import ChainRulesCore as CRC
-
-function Onion.softmax(::cuTileBackend, x::AbstractMatrix)
-    y = online_softmax(x)
+function Onion.softmax!(::cuTileBackend, y::AbstractMatrix, x::AbstractMatrix)
+    softmax!(y, x)
     return y
 end
 
-function CRC.rrule(::typeof(Onion.softmax), ::cuTileBackend,
+function CRC.rrule(::typeof(Onion.softmax!), ::cuTileBackend,
+    y::AbstractMatrix,
     x::AbstractMatrix
 )
-    y = online_softmax(x)
+    softmax!(y, x)
     function softmax_pullback(ȳ)
-        x̄ = ∇online_softmax(unthunk(ȳ), y)
-        return NoTangent(), NoTangent(), x̄
+        x̄ = ∇softmax(unthunk(ȳ), y)
+        return NoTangent(), NoTangent(), NoTangent(), x̄
     end
     return y, softmax_pullback
 end

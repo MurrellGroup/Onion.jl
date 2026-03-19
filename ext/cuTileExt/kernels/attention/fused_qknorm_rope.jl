@@ -7,26 +7,24 @@ function fused_qknorm_rope_fwd(
     QW::TileVector, KW::TileVector,
     Cos::TileVector, Sin::TileVector,
     D::Int, HALF_ROT::Int, PASS_DIM::Int,
-    Eps::Float32, Offset::Float32, OUT_T::Type,
+    eps::Float32, Offset::Float32,
 )
     padding_mode = ct.PaddingMode.Zero
-    h = ct.bid(1)
-    b = ct.bid(2)
+    h, b = ct.bid(1), ct.bid(2)
 
     q = ct.load(Q, (1, 1, h, b), (D,); padding_mode) → Float32
     k = ct.load(K, (1, 1, h, b), (D,); padding_mode) → Float32
     qw = ct.load(QW, (1,), (D,); padding_mode) → Float32
     kw = ct.load(KW, (1,), (D,); padding_mode) → Float32
 
-    # RMSNorm
-    q_rstd = 1.0f0 ./ sqrt.(sum(q .* q; dims=1) ./ Float32(D) .+ Eps)
+    q_rstd = 1 / √(sum(q .* q) / D + eps)
     q = q .* q_rstd .* (qw .+ Offset)
-    k_rstd = 1.0f0 ./ sqrt.(sum(k .* k; dims=1) ./ Float32(D) .+ Eps)
+    k_rstd = 1 / √(sum(k .* k) / D + eps)
     k = k .* k_rstd .* (kw .+ Offset)
 
-    # Store normalized (dims 65-256 are already correct, written here)
-    ct.store(Q, (1, 1, h, b), q → OUT_T)
-    ct.store(K, (1, 1, h, b), k → OUT_T)
+    # XXX: redundant?
+    ct.store(Q, (1, 1, h, b), q → eltype(Q))
+    ct.store(K, (1, 1, h, b), k → eltype(K))
 
     # Partial RoPE: rotate first 2*HALF_ROT dims in-place
     cos_v = ct.load(Cos, (1,), (HALF_ROT,)) → Float32
@@ -41,18 +39,18 @@ function fused_qknorm_rope_fwd(
     q_rot = ct.cat((q1 .* cos_v .- q2 .* sin_v, q2 .* cos_v .+ q1 .* sin_v), 1)
     k_rot = ct.cat((k1 .* cos_v .- k2 .* sin_v, k2 .* cos_v .+ k1 .* sin_v), 1)
 
-    ct.store(Q, (1, 1, h, b), q_rot → OUT_T)  # stores to first 2*HALF_ROT positions
-    ct.store(K, (1, 1, h, b), k_rot → OUT_T)
+    ct.store(Q, (1, 1, h, b), q_rot → eltype(Q))  # stores to first 2*HALF_ROT positions
+    ct.store(K, (1, 1, h, b), k_rot → eltype(K))
+
     return
 end
 
 function fused_qknorm_rope_step!(Q, K, QW, KW, Cos, Sin;
     rotary_dim, eps, offset, verify=nothing)
     D, _, H, B = size(Q)
-    T = eltype(Q)
     half_rot = rotary_dim ÷ 2
     pass_dim = D - rotary_dim
-    key = (T, D, rotary_dim)
+    key = (eltype(Q), D, rotary_dim)
 
     autotune_launch(fused_qknorm_rope_fwd,
         CartesianSpace(),
@@ -61,7 +59,6 @@ function fused_qknorm_rope_step!(Q, K, QW, KW, Cos, Sin;
             Q, K, QW, KW, Cos, Sin,
             Constant(D), Constant(half_rot), Constant(pass_dim),
             Constant(Float32(eps)), Constant(Float32(offset)),
-            Constant(T),
         );
         key, verify,
     )

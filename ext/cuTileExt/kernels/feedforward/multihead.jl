@@ -26,8 +26,7 @@ function mhffn_fwd(
         tiles_per_expert = D_E ÷ TILE_I
     end
 
-    i = 1i32
-    while i <= num_i
+    for i in 1i32:num_i
         k = ct.load(K, (i, 1, h), (TILE_I, TILE_D); padding_mode)
         u = ct.load(U, (i, 1, h), (TILE_I, TILE_D); padding_mode)
         v = ct.load(V, (1, i, h), (TILE_D, TILE_I); padding_mode)
@@ -44,8 +43,6 @@ function mhffn_fwd(
         end
 
         acc = muladd(v → Tc, a → Tc, acc)
-
-        i += 1i32
     end
 
     ct.store(O, (1, h, j), reshape(acc, (TILE_D, 1, TILE_L)) → eltype(O))
@@ -75,8 +72,7 @@ function mhffn_bwd_dq(
         dr_acc = ct.zeros((1, TILE_L), Tacc)
     end
 
-    i = 1i32
-    while i <= num_i
+    for i in 1i32:num_i
         k = ct.load(K, (i, 1, h), (TILE_I, TILE_D); padding_mode)
         u = ct.load(U, (i, 1, h), (TILE_I, TILE_D); padding_mode)
         v = ct.load(V, (1, i, h), (TILE_D, TILE_I); padding_mode)
@@ -113,8 +109,6 @@ function mhffn_bwd_dq(
 
         q̄_acc = muladd((k)ᵀ → Tc, M̄ → Tc, q̄_acc)
         q̄_acc = muladd((u)ᵀ → Tc, N̄ → Tc, q̄_acc)
-
-        i += 1i32
     end
 
     ct.store(Q̄, (1, h, j), reshape(q̄_acc, (TILE_D, 1, TILE_L)) → eltype(Q̄))
@@ -147,8 +141,7 @@ function mhffn_bwd_dkuv(
     end
 
     num_j = cld(size(Q, 3), TILE_L)
-    j = 1i32
-    while j <= num_j
+    for j in 1i32:num_j
         q = dropdims(ct.load(Q, (1, h, j), (TILE_D, 1, TILE_L); padding_mode), dims=2)
         ō = dropdims(ct.load(Ō, (1, h, j), (TILE_D, 1, TILE_L); padding_mode), dims=2)
 
@@ -177,8 +170,6 @@ function mhffn_bwd_dkuv(
         k̄_acc = muladd(M̄ → Tc, (q)ᵀ → Tc, k̄_acc)
         ū_acc = muladd(N̄ → Tc, (q)ᵀ → Tc, ū_acc)
         v̄_acc = muladd(ō → Tc, (a)ᵀ → Tc, v̄_acc)
-
-        j += 1i32
     end
 
     ct.store(K̄, (i, 1, h), k̄_acc → eltype(K̄))

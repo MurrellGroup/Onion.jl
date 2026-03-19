@@ -32,14 +32,12 @@ function swiglu_gate_up_fwd(
     acc_gate = ct.zeros((TILE_K, TILE_N), Tacc)
     acc_up   = ct.zeros((TILE_K, TILE_N), Tacc)
 
-    d = 1i32
-    while d <= num_d
+    for d in 1i32:num_d
         x  = ct.load(X,      (d, n), (TILE_D, TILE_N); padding_mode)
         wg = ct.load(W_gate, (k, d), (TILE_K, TILE_D); padding_mode)
         wu = ct.load(W_up,   (k, d), (TILE_K, TILE_D); padding_mode)
         acc_gate = muladd(wg → Tc, x → Tc, acc_gate)
         acc_up   = muladd(wu → Tc, x → Tc, acc_up)
-        d += 1i32
     end
 
     ct.store(Gate, (k, n), acc_gate → eltype(Gate))
@@ -69,8 +67,7 @@ function swiglu_act_down_fwd(
 
     acc_out = ct.zeros((TILE_O, TILE_N), Tacc)
 
-    k = 1i32
-    while k <= num_k
+    for k in 1i32:num_k
         gate = ct.load(Gate,   (k, n), (TILE_K, TILE_N); padding_mode) → T
         up   = ct.load(Up,     (k, n), (TILE_K, TILE_N); padding_mode) → T
         wd   = ct.load(W_down, (o, k), (TILE_O, TILE_K); padding_mode)
@@ -79,7 +76,6 @@ function swiglu_act_down_fwd(
         a = gate .* sig .* up
 
         acc_out = muladd(wd → Tc, a → Tc, acc_out)
-        k += 1i32
     end
 
     ct.store(O, (o, n), acc_out → eltype(O))
@@ -104,12 +100,10 @@ function swiglu_bwd_dA(
 
     dA_acc = ct.zeros((TILE_K, TILE_N), Tacc)
 
-    o = 1i32
-    while o <= num_o
+    for o in 1i32:num_o
         wd = ct.load(W_down, (o, k), (TILE_O, TILE_K); padding_mode)
         ō  = ct.load(Ō,      (o, n), (TILE_O, TILE_N); padding_mode)
         dA_acc = muladd((wd)ᵀ → Tc, ō → Tc, dA_acc)
-        o += 1i32
     end
 
     ct.store(dA_out, (k, n), dA_acc → eltype(dA_out))
@@ -136,8 +130,7 @@ function swiglu_bwd_dX(
 
     x̄_acc = ct.zeros((TILE_D, TILE_N), Tacc)
 
-    k = 1i32
-    while k <= num_k
+    for k in 1i32:num_k
         da   = ct.load(dA,   (k, n), (TILE_K, TILE_N); padding_mode) → T
         gate = ct.load(Gate, (k, n), (TILE_K, TILE_N); padding_mode) → T
         up   = ct.load(Up,   (k, n), (TILE_K, TILE_N); padding_mode) → T
@@ -154,8 +147,6 @@ function swiglu_bwd_dX(
 
         x̄_acc = muladd((wg)ᵀ → Tc, d_gate → Tc, x̄_acc)
         x̄_acc = muladd((wu)ᵀ → Tc, d_up   → Tc, x̄_acc)
-
-        k += 1i32
     end
 
     ct.store(X̄, (d, n), x̄_acc → eltype(X̄))
@@ -185,8 +176,7 @@ function swiglu_ffn_bwd_dw_down(
 
     w̄d_acc = ct.zeros((TILE_O, TILE_K), Tacc)
 
-    n = 1i32
-    while n <= num_n
+    for n in 1i32:num_n
         gate = ct.load(Gate, (k, n), (TILE_K, TILE_N); padding_mode) → T
         up   = ct.load(Up,   (k, n), (TILE_K, TILE_N); padding_mode) → T
         ō    = ct.load(Ō,    (o, n), (TILE_O, TILE_N); padding_mode)
@@ -195,8 +185,6 @@ function swiglu_ffn_bwd_dw_down(
         a = gate .* sig .* up
 
         w̄d_acc = muladd(ō → Tc, (a)ᵀ → Tc, w̄d_acc)
-
-        n += 1i32
     end
 
     ct.store(W̄_down, (o, k), w̄d_acc → eltype(W̄_down))
@@ -225,8 +213,7 @@ function swiglu_bwd_dW(
     w̄g_acc = ct.zeros((TILE_K, TILE_D), Tacc)
     w̄u_acc = ct.zeros((TILE_K, TILE_D), Tacc)
 
-    n = 1i32
-    while n <= num_n
+    for n in 1i32:num_n
         da   = ct.load(dA,   (k, n), (TILE_K, TILE_N); padding_mode) → T
         gate = ct.load(Gate, (k, n), (TILE_K, TILE_N); padding_mode) → T
         up   = ct.load(Up,   (k, n), (TILE_K, TILE_N); padding_mode) → T
@@ -242,8 +229,6 @@ function swiglu_bwd_dW(
 
         w̄g_acc = muladd(d_gate → Tc, (x)ᵀ → Tc, w̄g_acc)
         w̄u_acc = muladd(d_up   → Tc, (x)ᵀ → Tc, w̄u_acc)
-
-        n += 1i32
     end
 
     ct.store(W̄_gate, (k, d), w̄g_acc → eltype(W̄_gate))
@@ -311,7 +296,6 @@ function swiglu_ffn!(O::AbstractMatrix,
 
     return Gate, Up
 end
-
 
 
 function ∇swiglu_ffn!(

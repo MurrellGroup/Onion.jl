@@ -48,8 +48,7 @@ function mha_fwd(
         bᵇ = mod1(b, BIAS_BATCH)
     end
 
-    j = 1i32
-    while j <= kv_tiles
+    for j in 1i32:kv_tiles
         k = ct.load(K, (1, j, hₖ, b), (Dk, TILE_N); padding_mode, latency=2)
 
         s = muladd((k)ᵀ → Tc, q → Tc, ct.zeros((TILE_N, TILE_M), Tacc))
@@ -78,7 +77,6 @@ function mha_fwd(
         acc = muladd(v → Tc, p → Tc, acc)
 
         m_i = m_ij
-        j += 1i32
     end
 
     o = acc ./ l_i
@@ -159,8 +157,7 @@ function mha_bwd(
         bᵇ = mod1(b, BIAS_BATCH)
     end
 
-    j = 1i32
-    while j <= kv_tiles
+    for j in 1i32:kv_tiles
         k = ct.load(K, (1, j, hₖ, b), (Dk, TILE_N); padding_mode)
         v = ct.load(V, (1, j, hₖ, b), (Dv, TILE_N); padding_mode)
 
@@ -170,8 +167,7 @@ function mha_bwd(
         offs_n = (j - 1i32) * TILE_N .+ offs_n_base
         pad_mask_needed = j > fld(k_len, TILE_N)
 
-        i = 1i32
-        while i <= q_tiles
+        for i in 1i32:q_tiles
             q = ct.load(Q, (1, i, h, b), (Dk, TILE_M); padding_mode, allow_tma=false)
             ō = ct.load(Ō′, (1, i, h, b), (Dv, TILE_M); padding_mode, allow_tma=false)
 
@@ -212,15 +208,11 @@ function mha_bwd(
             ct.store(Q̄, (1, i, h, b), q̄ → eltype(Q̄))
 
             k̄_acc = muladd(q → Tc, (s̄)ᵀ → Tc, k̄_acc)
-
-            i += 1i32
         end
 
         store = isone(QUERY_GROUP_SIZE) ? ct.store : ct.atomic_add
         store(K̄, (1, j, hₖ, b), k̄_acc → eltype(K̄))
         store(V̄, (1, j, hₖ, b), v̄_acc → eltype(V̄))
-
-        j += 1i32
     end
 
     return
@@ -228,6 +220,8 @@ end
 
 function flash_attention!(O,
     Q, K, V, B;
+    M = nothing,
+    L = nothing,
     causal,
     k_lengths = nothing,
     q_lengths = nothing,
@@ -242,9 +236,6 @@ function flash_attention!(O,
     @assert SeqLen_K == SeqLen_V
     @assert Heads_KV == Heads_V
     @assert iszero(Heads % Heads_KV)
-
-    M = similar(Q, Float32, SeqLen_Q, Heads, Batch)
-    L = similar(Q, Float32, SeqLen_Q, Heads, Batch)
 
     query_group_size = Heads ÷ Heads_KV
     qk_scale = Float32(1 / sqrt(Dk))
@@ -286,8 +277,7 @@ end
 
 function ∇flash_attention!(
     Q̄, K̄, V̄, B̄, Ō,
-    Q, K, V, B, O,
-    M, L;
+    Q, K, V, B, O, M, L;
     causal,
     k_lengths = nothing,
     q_lengths = nothing,

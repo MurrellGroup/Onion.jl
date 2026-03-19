@@ -1,92 +1,33 @@
-#=============================================================================
- RMSNorm Forward Kernel
-
- Forward pass: computes RMS, normalizes input, and applies weighted scaling.
- Column-major: X is (M, N) with M=features, N=batch. Normalizes along dim 1.
-
-   y = x * rstd * (w + offset)
-   rstd = 1/sqrt(mean(x²) + eps)
-
- Simpler than LayerNorm: no mean subtraction, no bias.
- Zero-padded loads contribute 0² = 0 to sum of squares, so no masking needed.
-
- Args:
-     X: Input tensor (M, N).
-     W: Weight tensor (M,).
-     Y: Output tensor (M, N).
-     Rstd: Output reciprocal standard deviation tensor (N,).
-     offset: Scalar offset added to weight.
-     eps: Epsilon for numerical stability.
-     TILE_M: Tile size along M (feature) dimension.
-=============================================================================#
 function rms_norm_fwd(
     X::TileMatrix, W::TileVector,
-    Y::TileMatrix, Rstd::TileVector{Float32},
-    offset::Float32, eps::Float32, TILE_M::Int, OUT_T::Type,
+    Y::TileMatrix, Rstd::Optional{TileVector{Float32}},
+    offset::Float32, eps::Float32, TILE_M::Int,
 )
     bid_n = ct.bid(1)
     num_tiles = ct.num_tiles(X, 1, (TILE_M, 1))
     M = size(X, 1)
 
-    # Compute sum of squares (always Float32)
-    ss = ct.full((1, TILE_M), 0.0f0, Float32)
-    i = 1i32
-    while i <= num_tiles
-        tx = reshape(ct.load(X, (i, bid_n), (TILE_M, 1); padding_mode=ct.PaddingMode.Zero) → Float32, (1, TILE_M))
-        ss = ss .+ (tx .* tx)
-        i += 1i32
+    ss = ct.zeros((TILE_M,), Float32)
+    for i in 1i32:num_tiles
+        x = ct.load(X, (i, bid_n), (TILE_M,); padding_mode=ct.PaddingMode.Zero) → Float32
+        ss = ss .+ x .^ 2
     end
-    rstd = 1.0f0 ./ sqrt.(sum(ss; dims=2) / M .+ eps)
-    ct.store(Rstd, bid_n, rstd)
+    rstd = 1 / √(sum(ss) / M .+ eps)
+    isnothing(Rstd) || ct.store(Rstd, bid_n, rstd)
 
-    # Normalize and apply weight
-    i = 1i32
-    while i <= num_tiles
-        tx = reshape(ct.load(X, (i, bid_n), (TILE_M, 1); padding_mode=ct.PaddingMode.Zero) → Float32, (1, TILE_M))
-        tw = reshape(ct.load(W, i, (TILE_M,); padding_mode=ct.PaddingMode.Zero) → Float32, (1, TILE_M))
-        ty = tx .* rstd .* (tw .+ offset)
-        ct.store(Y, (i, bid_n), reshape(ty → OUT_T, (TILE_M, 1)))
-        i += 1i32
+    for i in 1i32:num_tiles
+        x = ct.load(X, (i, bid_n), (TILE_M,)) → Float32
+        w = ct.load(W, i, (TILE_M,)) → Float32
+        y = x .* rstd .* (w .+ offset)
+        ct.store(Y, (i, bid_n), y → eltype(Y))
     end
 
     return
 end
 
-#=============================================================================
- RMSNorm Backward Kernels
-
- Backward pass: computes gradients for RMSNorm.
- Column-major: X is (M, N) with M=features, N=batch.
-
-   dd = Σ_m(dy_m * (w_m + offset) * x_m)
-   dx = rstd * (dy * (w + offset) - rstd² * dd/M * x)
-   dw = Σ_n(dy * x * rstd)   (summed over batch)
-
- Two kernels:
- 1. rms_norm_bwd_dx_partial_dw - Computes dX and partial dW
- 2. rms_norm_bwd_dw - Final reduction for dW
-=============================================================================#
-
-"""
-    rms_norm_bwd_dx_partial_dw(DX, DY, DW, X, W, Rstd, Locks, offset, N_GROUPS, TILE_M)
-
-Backward pass part 1: computes dX and partial dW.
-
-Args:
-    DX: Output gradient with respect to X (M, N).
-    DY: Input gradient with respect to Y (M, N).
-    DW: Partial gradient with respect to W (M, N_GROUPS).
-    X: Input tensor (M, N).
-    W: Weight tensor (M,).
-    Rstd: Reciprocal standard deviation tensor (N,).
-    Locks: Lock tensor for atomic operations (N_GROUPS,).
-    offset: Scalar offset added to weight.
-    N_GROUPS: Number of partial gradient groups.
-    TILE_M: Tile size along M (feature) dimension.
-"""
 function rms_norm_bwd_dx_partial_dw(
-    DX::TileMatrix{Float32}, DY::TileMatrix{Float32},
-    DW::TileMatrix{Float32},
+    X̄::TileMatrix{Float32}, Ȳ::TileMatrix{Float32},
+    W̄::TileMatrix{Float32},
     X::TileMatrix{Float32}, W::TileVector{Float32},
     Rstd::TileVector{Float32},
     Locks::TileVector{Int},
@@ -96,35 +37,28 @@ function rms_norm_bwd_dx_partial_dw(
     bid_n = ct.bid(1)
     num_tiles = ct.num_tiles(X, 1, (TILE_M, 1))
     M = size(X, 1)
-    group_id = ((bid_n - 1i32) % Int32(N_GROUPS)) + 1i32
+    group_id = mod1(bid_n, Int32(N_GROUPS))
 
-    rstd = ct.load(Rstd, bid_n, (1,); padding_mode)
+    rstd = Rstd[bid_n]
 
-    # First pass: compute dd = sum(dy * (w + offset) * x) / M
-    dd = ct.full((1, TILE_M), 0.0f0, Float32)
-    i = 1i32
-    while i <= num_tiles
-        tx = reshape(ct.load(X, (i, bid_n), (TILE_M, 1); padding_mode), (1, TILE_M))
-        tw = reshape(ct.load(W, i, (TILE_M,); padding_mode), (1, TILE_M))
-        tdy = reshape(ct.load(DY, (i, bid_n), (TILE_M, 1); padding_mode), (1, TILE_M))
-        dd = dd .+ (tdy .* (tw .+ offset) .* tx)
-        i += 1i32
+    dd = ct.zeros((TILE_M,), Float32)
+    for i in 1i32:num_tiles
+        x = ct.load(X, (i, bid_n), (TILE_M,); padding_mode)
+        w = ct.load(W, i, (TILE_M,); padding_mode)
+        ȳ = ct.load(Ȳ, (i, bid_n), (TILE_M,); padding_mode)
+        dd = dd .+ (ȳ .* (w .+ offset) .* x)
     end
-    dd = sum(dd; dims=2) / M
+    dd = sum(dd) / M
 
-    # Second pass: compute dx and partial dw
-    i = 1i32
-    while i <= num_tiles
-        tx = reshape(ct.load(X, (i, bid_n), (TILE_M, 1); padding_mode), (1, TILE_M))
-        tw = reshape(ct.load(W, i, (TILE_M,); padding_mode), (1, TILE_M))
-        tdy = reshape(ct.load(DY, (i, bid_n), (TILE_M, 1); padding_mode), (1, TILE_M))
+    for i in 1i32:num_tiles
+        x = ct.load(X, (i, bid_n), (TILE_M,))
+        w = ct.load(W, i, (TILE_M,))
+        ȳ = ct.load(Ȳ, (i, bid_n), (TILE_M,))
 
-        # dx = rstd * (dy * (w + offset) - rstd² * dd * x)
-        tdx = rstd .* (tdy .* (tw .+ offset) .- (rstd .* rstd) .* dd .* tx)
-        ct.store(DX, (i, bid_n), reshape(tdx, (TILE_M, 1)))
+        x̄ = rstd .* (ȳ .* (w .+ offset) .- rstd^2 .* dd .* x)
+        ct.store(X̄, (i, bid_n), x̄)
 
-        # dw = dy * x * rstd (partial, accumulated across batch)
-        partial_dw = reshape(tdy .* tx .* rstd, (TILE_M, 1))
+        partial_w̄ = ȳ .* x̄ .* rstd
 
         # Acquire spinlock
         while ct.atomic_cas(Locks, group_id, 0, 1;
@@ -133,94 +67,70 @@ function rms_norm_bwd_dx_partial_dw(
         end
 
         # Critical section: accumulate partial gradients
-        partial_dw = partial_dw .+ ct.load(DW, (i, group_id), (TILE_M, 1); padding_mode)
-        ct.store(DW, (i, group_id), partial_dw)
+        partial_w̄ = partial_w̄ .+ ct.load(W̄, (i, group_id), (TILE_M,))
+        ct.store(W̄, (i, group_id), partial_w̄)
 
         # Release spinlock
         ct.atomic_xchg(Locks, group_id, 0;
                       memory_order=ct.MemoryOrder.Release)
-
-        i += 1i32
     end
 
     return
 end
 
-"""
-    rms_norm_bwd_dw(DW, FINAL_DW, TILE_G, TILE_F)
-
-Backward pass part 2: Final reduction for dW.
-
-Args:
-    DW: Partial gradient with respect to W (M, N_GROUPS).
-    FINAL_DW: Final gradient with respect to W (M,).
-    TILE_G: Tile size along groups dimension (dim 2).
-    TILE_F: Tile size along feature dimension (dim 1).
-"""
 function rms_norm_bwd_dw(
-    DW::TileMatrix{Float32},
-    FINAL_DW::TileVector{Float32},
+    W̄::TileMatrix{Float32},
+    FINAL_W̄::TileVector{Float32},
     TILE_G::Int, TILE_F::Int
 )
-    padding_mode = ct.PaddingMode.Zero
     bid = ct.bid(1)
-    num_tiles = ct.num_tiles(DW, 2, (TILE_F, TILE_G))
+    num_tiles = ct.num_tiles(W̄, 2, (TILE_F, TILE_G))
 
-    dw = ct.zeros((TILE_F, TILE_G), Float32)
-    i = 1i32
-    while i <= num_tiles
-        dw = dw .+ ct.load(DW, (bid, i), (TILE_F, TILE_G); padding_mode)
-        i += 1i32
+    w̄ = ct.zeros((TILE_F, TILE_G), Float32)
+    for i in 1i32:num_tiles
+        w̄ = w̄ .+ ct.load(W̄, (bid, i), (TILE_F, TILE_G); padding_mode=ct.PaddingMode.Zero)
     end
-    sum_dw = sum(dw; dims=2)
-
-    ct.store(FINAL_DW, bid, sum_dw)
+    ct.store(FINAL_W̄, bid, sum(w̄; dims=2))
 
     return
 end
 
-function rms_norm(
-    X::AbstractMatrix{T}, W::AbstractVector{Tw};
+function rms_norm!(
+    Y::AbstractMatrix, X::AbstractMatrix, W::AbstractVector;
+    Rstd = nothing,
     eps,
     offset = 0f0,
     verify = nothing
-) where {T, Tw}
+)
     M, N = size(X)
     @assert length(W) == M
-
-    Y = similar(X)
-    Rstd = similar(X, Float32, N)
-
-    key = (T, Tw)
 
     autotune_launch(rms_norm_fwd,
         CartesianSpace(TILE_M=(128, 256, 512, 1024)),
         cfg -> N,
         cfg -> (
             X, W, Y, Rstd,
-            Constant(Float32(offset)), Constant(Float32(eps)), Constant(cfg.TILE_M),
-            Constant(T)
+            Constant(Float32(offset)), Constant(Float32(eps)), Constant(cfg.TILE_M)
         );
-        key, verify
+        key = (eltype(X), eltype(W)),
+        verify
     )
 
-    return Y, Rstd
+    return
 end
 
 function ∇rms_norm(
     Ȳ::AbstractMatrix, X::AbstractMatrix,
     W::AbstractVector, Rstd::AbstractVector;
     offset = 0f0,
-    N_GROUPS = 64, # XXX: autotune this
+    N_GROUPS = 64, # TODO: autotune this?
 )
     M, N = size(X)
 
     X̄ = similar(X)
-    W̄_partial = fill!(similar(W, M, N_GROUPS), 0)
-    Locks = fill!(similar(X, Int, N_GROUPS), 0)
+    W̄_partial = similar(W, M, N_GROUPS)
+    Locks = similar(X, Int, N_GROUPS)
     W̄ = similar(W)
-
-    key = (eltype(X), eltype(W))
 
     autotune_launch(rms_norm_bwd_dx_partial_dw,
         CartesianSpace(TILE_M=(128, 256, 512, 1024)),
@@ -228,7 +138,8 @@ function ∇rms_norm(
         cfg -> (
             X̄, Ȳ, fill!(W̄_partial, 0), X, W, Rstd, fill!(Locks, 0),
             Constant(Float32(offset)), Constant(N_GROUPS), Constant(cfg.TILE_M)
-        )
+        );
+        key = (eltype(X), eltype(W))
     )
 
     autotune_launch(rms_norm_bwd_dw,
@@ -238,7 +149,7 @@ function ∇rms_norm(
             W̄_partial, W̄,
             Constant(cfg.TILE_G), Constant(cfg.TILE_F)
         );
-        key,
+        key = (eltype(X), eltype(W))
     )
 
     return X̄, W̄

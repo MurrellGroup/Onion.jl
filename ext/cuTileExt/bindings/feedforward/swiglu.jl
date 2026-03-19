@@ -47,6 +47,16 @@ function ∇swiglu_ffn(Ō, X, Wᵍ, Wᵘ, Wᵈ, cache)
     return X̄, W̄ᵍ, W̄ᵘ, W̄ᵈ
 end
 
+function Onion.glu_ffn!(::cuTileBackend,
+    O::AbstractMatrix, X::AbstractMatrix,
+    Wᵍ::AbstractMatrix, Wᵘ::AbstractMatrix, Wᵈ::AbstractMatrix,
+    ::typeof(swish);
+    kws...
+)
+    swiglu_ffn!(O, X, Wᵍ, Wᵘ, Wᵈ; kws...)
+    return O
+end
+
 function Onion.glu_ffn(::cuTileBackend,
     X::AbstractMatrix,
     Wᵍ::AbstractMatrix, Wᵘ::AbstractMatrix, Wᵈ::AbstractMatrix,

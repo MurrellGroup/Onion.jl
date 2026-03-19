@@ -17,8 +17,7 @@ function deltanet_sequence_fwd(
     h, b = ct.bid(1), ct.bid(2)
     num_dk_tiles = cld(Int32(Dk), Int32(BLOCK_DK))
 
-    t = 1i32
-    while t <= T_len
+    for t in 1i32:T_len
         g = Gate[h, t, b] → Float32
         decay = exp(g)
         beta = Beta[h, t, b] → Float32
@@ -27,8 +26,7 @@ function deltanet_sequence_fwd(
 
         # Pass 1: Decay state + accumulate S^T @ k
         acc = ct.zeros((Dv,), Float32)
-        i = 1i32
-        while i <= num_dk_tiles
+        for i in 1i32:num_dk_tiles
             s = ct.load(S, (i, 1, h, b), (BLOCK_DK, Dv); padding_mode) → Float32
             k = ct.load(K, (i, t, h, b), (BLOCK_DK,); padding_mode) → Float32
 
@@ -36,28 +34,24 @@ function deltanet_sequence_fwd(
             ct.store(S, (i, 1, h, b), s → eltype(S))
 
             acc = mva((s)ᵀ, k, acc)
-            i += 1i32
         end
 
         delta = beta .* (v .- acc)
 
         # Pass 2: Rank-1 update + output query
         output = ct.zeros((Dv,), Float32)
-        i = 1i32
-        while i <= num_dk_tiles
+        for i in 1i32:num_dk_tiles
             s = ct.load(S, (i, 1, h, b), (BLOCK_DK, Dv); padding_mode) → Float32
             k = ct.load(K, (i, t, h, b), (BLOCK_DK,); padding_mode) → Float32
 
-            s = s .+ k .* permutedims(delta)
+            s = s .+ k .* (delta)ᵀ
             ct.store(S, (i, 1, h, b), s → eltype(S))
 
             q = ct.load(Q, (i, t, h, b), (BLOCK_DK,); padding_mode) → Float32
             output = mva((s)ᵀ, q, output)
-            i += 1i32
         end
 
         ct.store(O, (1, t, h, b), output → eltype(O))
-        t += 1i32
     end
 
     return
@@ -69,13 +63,6 @@ function deltanet_sequence_step!(O, Q, K, V, Beta, Gate, S; verify=nothing)
 
     key = (eltype(Q), Dk, Dv, T)
 
-    function setup()
-        saved = copy(S)
-        function reset()
-            copy!(S, saved)
-        end
-    end
-
     autotune_launch(deltanet_sequence_fwd,
         CartesianSpace(BLOCK_DK=(8, 16, 32)),
         cfg -> (H, B),
@@ -84,6 +71,6 @@ function deltanet_sequence_step!(O, Q, K, V, Beta, Gate, S; verify=nothing)
             Constant(Dk), Constant(Dv), Constant(T),
             Constant(cfg.BLOCK_DK),
         );
-        key, verify, setup
+        key, verify
     )
 end

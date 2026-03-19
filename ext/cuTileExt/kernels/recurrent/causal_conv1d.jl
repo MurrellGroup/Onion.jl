@@ -15,8 +15,7 @@ function causal_conv1d_update_fwd(
     x = ct.load(X, (pid, b), (TILE_D,); padding_mode) → Float32
     acc = ct.zeros((TILE_D,), Float32)
 
-    i = 1i32
-    while i <= KERNEL_SIZE
+    for i in 1i32:KERNEL_SIZE
         s = i == KERNEL_SIZE ? x :
             ct.load(State, (pid, i + 1i32, b), (TILE_D,); padding_mode) → Float32
 
@@ -24,8 +23,6 @@ function causal_conv1d_update_fwd(
 
         w = ct.load(Weight, (pid, i), (TILE_D,); padding_mode) → Float32
         acc = acc .+ s .* w
-
-        i += 1i32
     end
 
     if HAS_BIAS
@@ -53,13 +50,6 @@ function causal_conv1d_step!(Y, X, State, Weight, Bias;
 
     bias_arr = has_bias ? Bias : similar(X, eltype(X), 0)
 
-    function setup()
-        saved = copy(State)
-        function reset()
-            copy!(State, saved)
-        end
-    end
-
     autotune_launch(causal_conv1d_update_fwd,
         CartesianSpace(TILE_D=(16, 32, 64, 128)),
         cfg -> (cld(D, cfg.TILE_D), B),
@@ -70,6 +60,6 @@ function causal_conv1d_step!(Y, X, State, Weight, Bias;
             Constant(has_bias),
             Constant(silu),
         );
-        key, verify, setup
+        key, verify
     )
 end

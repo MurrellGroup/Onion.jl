@@ -1,12 +1,14 @@
 using Onion: Onion, cuTileBackend, DefaultBackend
 using ChainRulesCore: ChainRulesCore as CRC, NoTangent, unthunk
+import ChainRulesCore: rrule
 
 import Zygote
 
-# Fallback: unimplemented primitives on cuTile → DefaultBackend
-function (p::Onion.Primitive)(::cuTileBackend, args...; kws...)
-    return p(DefaultBackend(), args...; kws...)
-end
+# Note: no generic Primitive fallback here — it creates ambiguity with
+# the @primitive dispatch chain `(b::Backend, r::Rules, args...)`.
+# All used primitives have explicit cuTileBackend methods below.
+# Unimplemented ones fall through to `(b::Backend, ...)` defaults,
+# which work on CuArrays via GPUArrays broadcasting.
 
 include("attention/attention.jl")
 

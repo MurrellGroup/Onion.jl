@@ -24,6 +24,5 @@ function linear(b::Backend,
     x::AbstractMatrix, W::AbstractMatrix, bias::Union{AbstractVector,Bool}
 )
     bufs = get_buffers(linear, b, x, W, bias)
-    linear!(b, bufs.y, x, W, bias)
-    return bufs.y
+    return linear!(b, bufs.y, x, W, bias)
 end

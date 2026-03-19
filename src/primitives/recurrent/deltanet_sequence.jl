@@ -34,7 +34,7 @@ function deltanet_sequence(b::Backend,
     return bufs.output, bufs.final_state
 end
 
-# Naive sequential recurrence. Correct, simple, AD-friendly (no mutation).
+# Naive sequential recurrence. Not Zygote-friendly.
 function deltanet_sequence(::DefaultBackend,
     q::AbstractArray{T,4},    # (Dk, L, Hk, B)
     k::AbstractArray{T,4},    # (Dk, L, Hk, B)

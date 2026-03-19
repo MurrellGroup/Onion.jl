@@ -1,7 +1,23 @@
+function Onion.fused_qknorm_rope!(::cuTileBackend,
+    q_out::AbstractArray{T,4}, k_out::AbstractArray{T,4},
+    q::AbstractArray{T,4}, k::AbstractArray{T,4},
+    q_norm_weight::AbstractVector, k_norm_weight::AbstractVector,
+    rope_cos::AbstractArray, rope_sin::AbstractArray;
+    eps, offset, rotary_dim,
+) where T
+    copyto!(q_out, q)
+    copyto!(k_out, k)
+    cos_1d = vec(rope_cos)
+    sin_1d = vec(rope_sin)
+    fused_qknorm_rope_step!(q_out, k_out, q_norm_weight, k_norm_weight, cos_1d, sin_1d;
+        rotary_dim, eps=Float32(eps), offset=Float32(offset))
+    return q_out, k_out
+end
+
 function Onion.fused_qknorm_rope(::cuTileBackend,
     q::AbstractArray{T,4}, k::AbstractArray{T,4},
-    q_norm_weight, k_norm_weight,
-    rope_cos, rope_sin;
+    q_norm_weight::AbstractVector, k_norm_weight::AbstractVector,
+    rope_cos::AbstractArray, rope_sin::AbstractArray;
     eps, offset, rotary_dim,
 ) where T
     Q = copy(q)  # will be mutated in-place

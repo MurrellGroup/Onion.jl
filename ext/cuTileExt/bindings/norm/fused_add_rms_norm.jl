@@ -1,3 +1,19 @@
+function Onion.fused_add_rms_norm!(::cuTileBackend,
+    new_x::AbstractArray{T}, normed::AbstractArray{T},
+    residual::AbstractArray{T}, x::AbstractArray{T}, w::AbstractVector;
+    eps, offset,
+) where T
+    r2d = ndims(residual) == 1 ? reshape(residual, :, 1) : residual
+    x2d = ndims(x) == 1 ? reshape(x, :, 1) : x
+    nx2d = ndims(new_x) == 1 ? reshape(new_x, :, 1) : new_x
+    n2d = ndims(normed) == 1 ? reshape(normed, :, 1) : normed
+
+    fused_add_rms_norm!(nx2d, n2d, r2d, x2d, w;
+        eps=Float32(eps), offset=Float32(offset))
+
+    return new_x, normed
+end
+
 function Onion.fused_add_rms_norm(::cuTileBackend,
     residual::AbstractArray{T}, x::AbstractArray{T}, w::AbstractVector;
     eps, offset,
@@ -18,7 +34,7 @@ function Onion.fused_add_rms_norm(::cuTileBackend,
         end
     end
 
-    fused_add_rms_norm_step!(NewX, Normed, r2d, x2d, w;
+    fused_add_rms_norm!(NewX, Normed, r2d, x2d, w;
         eps=Float32(eps), offset=Float32(offset))
 
     if ndims(residual) == 1

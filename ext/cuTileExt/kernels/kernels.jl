@@ -73,6 +73,13 @@ end
     ct.atomic_add(arr, element_indices(size(tile), i), tile; kws...)
 end
 
+function mva(a, b, acc)
+    b = reshape(b, (size(b, 1), 1))
+    acc = reshape(acc, (size(acc, 1), 1))
+    acc′ = muladd(a, b, acc)
+    return dropdims(acc′, dims=2)
+end
+
 include("attention/attention.jl")
 
 include("attention/fused_qknorm_rope.jl")

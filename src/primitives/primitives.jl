@@ -35,9 +35,7 @@ backend!(b::Backend) = (GLOBAL_BACKEND[] = b; nothing)
 withbackend(f::Function, b::Backend) = with(f, SCOPED_BACKEND => b)
 
 macro primitive(name)
-    name_str = string(name)
-    T = endswith(name_str, '!') ? Symbol('#', name_str[1:end-1], "_mut") : Symbol('#', name)
-
+    T = Symbol('#', name)
     esc(quote
         struct $T <: $Primitive end
         Base.@__doc__ const $name = $T()
@@ -70,6 +68,5 @@ include("softmax.jl")
 include("norm/norm.jl")
 include("attention/attention.jl")
 include("feedforward/feedforward.jl")
-include("positional/rotary.jl")
 include("contraction/combine_projections.jl")
 include("recurrent/recurrent.jl")
