@@ -24,8 +24,8 @@ function fused_deltanet_decode_fwd(
     beta = 1 / (1 + exp(-β_raw))
 
     # L2 norms (Q, K indexed by key head)
-    q_ss = ct.zeros((BLOCK_DK,), Float32)
-    k_ss = ct.zeros((BLOCK_DK,), Float32)
+    q_ss = zeros(Float32, BLOCK_DK)
+    k_ss = zeros(Float32, BLOCK_DK)
     for i in 1i32:num
         qt = ct.load(Q_raw, (i, h_k, b), (BLOCK_DK,); padding_mode) → Float32
         kt = ct.load(K_raw, (i, h_k, b), (BLOCK_DK,); padding_mode) → Float32
@@ -38,7 +38,7 @@ function fused_deltanet_decode_fwd(
     v = ct.load(V, (1, h_v, b), (Dv,)) → Float32
 
     # Pass 1: decay + S^T @ k_norm
-    acc = ct.zeros((Dv,), Float32)
+    acc = zeros(Float32, Dv)
     for i in 1i32:num
         s = ct.load(S, (i, 1, h_v, b), (BLOCK_DK, Dv); padding_mode) → Float32
         kt = ct.load(K_raw, (i, h_k, b), (BLOCK_DK,); padding_mode) → Float32
@@ -49,7 +49,7 @@ function fused_deltanet_decode_fwd(
     delta = beta .* (v .- acc)
 
     # Pass 2: rank-1 update + output
-    output = ct.zeros((Dv,), Float32)
+    output = zeros(Float32, Dv)
     for i in 1i32:num
         s = ct.load(S, (i, 1, h_v, b), (BLOCK_DK, Dv); padding_mode) → Float32
         kt = ct.load(K_raw, (i, h_k, b), (BLOCK_DK,); padding_mode) → Float32

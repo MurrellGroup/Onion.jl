@@ -9,30 +9,26 @@ function linear_kernel(
     padding_mode = ct.PaddingMode.Zero
     bid = ct.bid(1)
     M, N = size(Y)
-
-    bid_m_0, bid_n_0 = swizzle_2d(M, N, TILE_M, TILE_N, GROUP_SIZE_M, bid - 1i32)
-    bid_m = bid_m_0 + 1i32
-    bid_n = bid_n_0 + 1i32
-
+    i, j = swizzle_2d(M, N, TILE_M, TILE_N, GROUP_SIZE_M, bid - 1i32) .+ 1i32
     num_k = cld(size(W, W_TRANS ? 1 : 2), Int32(TILE_K))
-
-    acc = ct.zeros((TILE_M, TILE_N), Tacc)
 
     w_order = W_TRANS ? (2, 1) : (1, 2)
     x_order = X_TRANS ? (2, 1) : (1, 2)
 
+    acc = zeros(Tacc, (TILE_M, TILE_N))
     for k in 1i32:num_k
-        w = ct.load(W, (bid_m, k), (TILE_M, TILE_K); padding_mode, order=w_order)
-        x = ct.load(X, (k, bid_n), (TILE_K, TILE_N); padding_mode, order=x_order)
+        w = ct.load(W, (i, k), (TILE_M, TILE_K); padding_mode, order=w_order)
+        x = ct.load(X, (k, j), (TILE_K, TILE_N); padding_mode, order=x_order)
         acc = muladd(w → Tc, x → Tc, acc)
     end
 
     if !isnothing(B)
-        b = ct.load(B, (bid_m,), (TILE_M,))
+        b = ct.load(B, (i,), (TILE_M,))
         acc = acc .+ b → Tacc
     end
 
-    ct.store(Y, (bid_m, bid_n), acc → eltype(Y))
+    ct.store(Y, (i, j), acc → eltype(Y))
+
     return
 end
 
@@ -56,7 +52,7 @@ function linear!(
     autotune_launch(linear_kernel,
         CartesianSpace(
             TILE_M=(32, 64, 128), TILE_K=(32, 64, 128),
-            TILE_N=(32, 64, 128), GROUP_SIZE_M=(8, 16),
+            TILE_N=(32, 64, 128), GROUP_SIZE_M=(8,),
             occupancy=(1, 2, 4),
         ),
         cfg -> (cld(M, cfg.TILE_M) * cld(N, cfg.TILE_N),),
@@ -69,7 +65,8 @@ function linear!(
         );
         key, verify,
     )
-    return nothing
+
+    return
 end
 
 function ∇linear!(

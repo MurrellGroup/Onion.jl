@@ -22,10 +22,10 @@ function causal_conv1d_sequence_fwd(
 
     bias_tile = HAS_BIAS ?
         ct.load(Bias, (pid,), (TILE_D,); padding_mode) → Float32 :
-        ct.zeros((TILE_D,), Float32)
+        zeros(Float32, TILE_D)
 
     for t in 1i32:T_len
-        acc = ct.zeros((TILE_D,), Float32)
+        acc = zeros(Float32, TILE_D)
 
         # Convolve: sum over kernel window
         for k in 1i32:KERNEL_SIZE
@@ -34,7 +34,7 @@ function causal_conv1d_sequence_fwd(
             if src_t >= 1i32
                 x_val = ct.load(X, (pid, src_t, b), (TILE_D,); padding_mode) → Float32
             else
-                x_val = ct.zeros((TILE_D,), Float32)
+                x_val = zeros(Float32, TILE_D)
             end
             w_val = ct.load(Weight, (pid, k), (TILE_D,); padding_mode) → Float32
             acc = acc .+ x_val .* w_val

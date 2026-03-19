@@ -57,7 +57,7 @@ accumulate_type(::Type{Float16}) = Float16
     return bid_m, bid_n
 end
 
-@inline function element_indices(shape::NTuple{1, Int}, index::Integer)
+@inline function element_indices(shape::Union{Tuple{Int},Int}, index::Integer)
     ct.arange(shape, Int32) .+ Int32((index - One()) * shape[1])
 end
 

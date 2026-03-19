@@ -23,12 +23,12 @@ function mha_fwd(
     q_len = isnothing(q_lengths) ? size(Q, 2) : q_lengths[b]
     (i - 1i32) * TILE_M >= q_len && return
 
-    offs_m = reshape((i - 1i32) * TILE_M .+ (ct.arange((TILE_M,), Int32) .- 1i32) .+ input_pos, (1, TILE_M))
-    offs_n_tile = reshape(ct.arange((TILE_N,), Int32) .- 1i32, (TILE_N, 1))
+    offs_m = (i - 1i32) * TILE_M .+ ct.arange(TILE_M, Int32) .- 1i32 .+ input_pos
+    offs_n_tile = ct.arange(TILE_N, Int32) .- 1i32
 
-    m_i = ct.full((1, TILE_M), -Inf32, Float32)
-    l_i = ct.zeros((1, TILE_M), Float32)
-    acc = ct.zeros((Dv, TILE_M), Tacc)
+    m_i = fill(-Inf32, (1, TILE_M))
+    l_i = zeros(Float32, (1, TILE_M))
+    acc = zeros(Tacc, (Dv, TILE_M))
 
     q = ct.load(Q, (1, i, h, b), (Dk, TILE_M); padding_mode)
 
@@ -51,7 +51,7 @@ function mha_fwd(
     for j in 1i32:kv_tiles
         k = ct.load(K, (1, j, hₖ, b), (Dk, TILE_N); padding_mode, latency=2)
 
-        s = muladd((k)ᵀ → Tc, q → Tc, ct.zeros((TILE_N, TILE_M), Tacc))
+        s = muladd((k)ᵀ → Tc, q → Tc, zeros(Tacc, (TILE_N, TILE_M)))
         s = s * Tacc(qk_scale)
 
         if B isa TileArray
@@ -62,7 +62,7 @@ function mha_fwd(
         if j > mask_start
             offs_n = (j - 1i32) * TILE_N .+ offs_n_tile
             mask = offs_n .< k_len
-            CAUSAL && (mask = mask .& (offs_m .>= offs_n))
+            CAUSAL && (mask = mask .& (offs_n .<= (offs_m)ᵀ))
             s = ifelse.(mask, s, Tacc(-Inf32))
         end
 
@@ -150,7 +150,7 @@ function mha_bwd(
     q_tiles = cld(q_len, TILE_M)
     kv_tiles = cld(k_len, TILE_N)
 
-    offs_n_base = reshape(ct.arange((TILE_N,), Int32) .- 1i32, (TILE_N, 1))
+    offs_n_base = ct.arange(TILE_N, Int32) .- 1i32
 
     if B isa TileArray
         hᵇ = mod1(h, BIAS_HEADS)
@@ -161,8 +161,8 @@ function mha_bwd(
         k = ct.load(K, (1, j, hₖ, b), (Dk, TILE_N); padding_mode)
         v = ct.load(V, (1, j, hₖ, b), (Dv, TILE_N); padding_mode)
 
-        k̄_acc = ct.zeros((Dk, TILE_N), Tacc)
-        v̄_acc = ct.zeros((Dv, TILE_N), Tacc)
+        k̄_acc = zeros(Tacc, (Dk, TILE_N))
+        v̄_acc = zeros(Tacc, (Dv, TILE_N))
 
         offs_n = (j - 1i32) * TILE_N .+ offs_n_base
         pad_mask_needed = j > fld(k_len, TILE_N)
@@ -174,7 +174,7 @@ function mha_bwd(
             m = reshape(ct.load(M, (i, h, b), (TILE_M,), latency=1), (1, TILE_M))
             δ = reshape(ct.load(Δ, (i, h, b), (TILE_M,), latency=1), (1, TILE_M))
 
-            s = muladd((k)ᵀ → Tc, q → Tc, ct.zeros((TILE_N, TILE_M), Tacc))
+            s = muladd((k)ᵀ → Tc, q → Tc, zeros(Tacc, (TILE_N, TILE_M)))
             s = s * Tacc(qk_scale)
 
             if B isa TileArray
@@ -183,16 +183,16 @@ function mha_bwd(
             end
 
             if CAUSAL || pad_mask_needed
-                offs_m = reshape((i - 1i32) * TILE_M .+ (ct.arange((TILE_M,), Int32) .- 1i32) .+ input_pos, (1, TILE_M))
+                offs_m = (i - 1i32) * TILE_M .+ ct.arange(TILE_M, Int32) .- 1i32 .+ input_pos
                 mask = offs_n .< k_len
-                CAUSAL && (mask = mask .& (offs_m .>= offs_n))
+                CAUSAL && (mask = mask .& (offs_n .<= (offs_m)ᵀ))
                 s = ifelse.(mask, s, Tacc(-Inf32))
             end
 
             p = exp.(s .- Tacc.(m))
             v̄_acc = muladd(ō → Tc, (p)ᵀ → Tc, v̄_acc)
 
-            p̄ = muladd((v)ᵀ → Tc, ō → Tc, ct.zeros((TILE_N, TILE_M), Tacc))
+            p̄ = muladd((v)ᵀ → Tc, ō → Tc, zeros(Tacc, (TILE_N, TILE_M)))
 
             ds = p .* (p̄ .- Tacc.(δ))
 

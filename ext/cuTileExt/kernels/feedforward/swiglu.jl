@@ -29,8 +29,8 @@ function swiglu_gate_up_fwd(
     n = n_0 + 1i32
     num_d = cld(D, Int32(TILE_D))
 
-    acc_gate = ct.zeros((TILE_K, TILE_N), Tacc)
-    acc_up   = ct.zeros((TILE_K, TILE_N), Tacc)
+    acc_gate = zeros(Tacc, (TILE_K, TILE_N))
+    acc_up   = zeros(Tacc, (TILE_K, TILE_N))
 
     for d in 1i32:num_d
         x  = ct.load(X,      (d, n), (TILE_D, TILE_N); padding_mode)
@@ -65,7 +65,7 @@ function swiglu_act_down_fwd(
     n = n_0 + 1i32
     num_k = cld(K, Int32(TILE_K))
 
-    acc_out = ct.zeros((TILE_O, TILE_N), Tacc)
+    acc_out = zeros(Tacc, (TILE_O, TILE_N))
 
     for k in 1i32:num_k
         gate = ct.load(Gate,   (k, n), (TILE_K, TILE_N); padding_mode) → T
@@ -98,7 +98,7 @@ function swiglu_bwd_dA(
     k = k_0 + 1i32; n = n_0 + 1i32
     num_o = cld(D_out, Int32(TILE_O))
 
-    dA_acc = ct.zeros((TILE_K, TILE_N), Tacc)
+    dA_acc = zeros(Tacc, (TILE_K, TILE_N))
 
     for o in 1i32:num_o
         wd = ct.load(W_down, (o, k), (TILE_O, TILE_K); padding_mode)
@@ -128,7 +128,7 @@ function swiglu_bwd_dX(
     d = d_0 + 1i32; n = n_0 + 1i32
     num_k = cld(K, Int32(TILE_K))
 
-    x̄_acc = ct.zeros((TILE_D, TILE_N), Tacc)
+    x̄_acc = zeros(Tacc, (TILE_D, TILE_N))
 
     for k in 1i32:num_k
         da   = ct.load(dA,   (k, n), (TILE_K, TILE_N); padding_mode) → T
@@ -174,7 +174,7 @@ function swiglu_ffn_bwd_dw_down(
 
     num_n = cld(N, Int32(TILE_N))
 
-    w̄d_acc = ct.zeros((TILE_O, TILE_K), Tacc)
+    w̄d_acc = zeros(Tacc, (TILE_O, TILE_K))
 
     for n in 1i32:num_n
         gate = ct.load(Gate, (k, n), (TILE_K, TILE_N); padding_mode) → T
@@ -210,8 +210,8 @@ function swiglu_bwd_dW(
     k = k_0 + 1i32; d = d_0 + 1i32
     num_n = cld(N, Int32(TILE_N))
 
-    w̄g_acc = ct.zeros((TILE_K, TILE_D), Tacc)
-    w̄u_acc = ct.zeros((TILE_K, TILE_D), Tacc)
+    w̄g_acc = zeros(Tacc, (TILE_K, TILE_D))
+    w̄u_acc = zeros(Tacc, (TILE_K, TILE_D))
 
     for n in 1i32:num_n
         da   = ct.load(dA,   (k, n), (TILE_K, TILE_N); padding_mode) → T

@@ -7,7 +7,7 @@ function rms_norm_fwd(
     num_tiles = ct.num_tiles(X, 1, (TILE_M, 1))
     M = size(X, 1)
 
-    ss = ct.zeros((TILE_M,), Float32)
+    ss = zeros(Float32, TILE_M)
     for i in 1i32:num_tiles
         x = ct.load(X, (i, bid_n), (TILE_M,); padding_mode=ct.PaddingMode.Zero) → Float32
         ss = ss .+ x .^ 2
@@ -41,7 +41,7 @@ function rms_norm_bwd_dx_partial_dw(
 
     rstd = Rstd[bid_n]
 
-    dd = ct.zeros((TILE_M,), Float32)
+    dd = zeros(Float32, TILE_M)
     for i in 1i32:num_tiles
         x = ct.load(X, (i, bid_n), (TILE_M,); padding_mode)
         w = ct.load(W, i, (TILE_M,); padding_mode)
@@ -86,7 +86,7 @@ function rms_norm_bwd_dw(
     bid = ct.bid(1)
     num_tiles = ct.num_tiles(W̄, 2, (TILE_F, TILE_G))
 
-    w̄ = ct.zeros((TILE_F, TILE_G), Float32)
+    w̄ = zeros(Float32, (TILE_F, TILE_G))
     for i in 1i32:num_tiles
         w̄ = w̄ .+ ct.load(W̄, (bid, i), (TILE_F, TILE_G); padding_mode=ct.PaddingMode.Zero)
     end

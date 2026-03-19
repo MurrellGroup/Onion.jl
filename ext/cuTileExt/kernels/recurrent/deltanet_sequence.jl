@@ -25,7 +25,7 @@ function deltanet_sequence_fwd(
         v = ct.load(V, (1, t, h, b), (Dv,)) → Float32
 
         # Pass 1: Decay state + accumulate S^T @ k
-        acc = ct.zeros((Dv,), Float32)
+        acc = zeros(Float32, Dv)
         for i in 1i32:num_dk_tiles
             s = ct.load(S, (i, 1, h, b), (BLOCK_DK, Dv); padding_mode) → Float32
             k = ct.load(K, (i, t, h, b), (BLOCK_DK,); padding_mode) → Float32
@@ -39,7 +39,7 @@ function deltanet_sequence_fwd(
         delta = beta .* (v .- acc)
 
         # Pass 2: Rank-1 update + output query
-        output = ct.zeros((Dv,), Float32)
+        output = zeros(Float32, Dv)
         for i in 1i32:num_dk_tiles
             s = ct.load(S, (i, 1, h, b), (BLOCK_DK, Dv); padding_mode) → Float32
             k = ct.load(K, (i, t, h, b), (BLOCK_DK,); padding_mode) → Float32

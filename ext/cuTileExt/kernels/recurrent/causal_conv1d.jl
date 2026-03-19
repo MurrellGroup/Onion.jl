@@ -13,7 +13,7 @@ function causal_conv1d_update_fwd(
     pid, b = ct.bid(1), ct.bid(2)
 
     x = ct.load(X, (pid, b), (TILE_D,); padding_mode) → Float32
-    acc = ct.zeros((TILE_D,), Float32)
+    acc = zeros(Float32, TILE_D)
 
     for i in 1i32:KERNEL_SIZE
         s = i == KERNEL_SIZE ? x :

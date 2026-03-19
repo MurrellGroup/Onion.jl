@@ -18,7 +18,7 @@ function mhffn_fwd(
 
     q = dropdims(ct.load(Q, (1, h, j), (TILE_D, 1, TILE_L); padding_mode), dims=2)
 
-    acc = ct.zeros((TILE_D, TILE_L), Tacc)
+    acc = zeros(Tacc, (TILE_D, TILE_L))
 
     num_i = cld(size(K, 1), TILE_I)
 
@@ -31,8 +31,8 @@ function mhffn_fwd(
         u = ct.load(U, (i, 1, h), (TILE_I, TILE_D); padding_mode)
         v = ct.load(V, (1, i, h), (TILE_D, TILE_I); padding_mode)
 
-        m = muladd(k → Tc, q → Tc, ct.zeros((TILE_I, TILE_L), Tacc))
-        n = muladd(u → Tc, q → Tc, ct.zeros((TILE_I, TILE_L), Tacc))
+        m = muladd(k → Tc, q → Tc, zeros(Tacc, (TILE_I, TILE_L)))
+        n = muladd(u → Tc, q → Tc, zeros(Tacc, (TILE_I, TILE_L)))
 
         a = m ./ (1 .+ exp.(0 .- m)) .* n
 
@@ -65,11 +65,11 @@ function mhffn_bwd_dq(
     q = dropdims(ct.load(Q, (1, h, j), (TILE_D, 1, TILE_L); padding_mode), dims=2)
     ō = dropdims(ct.load(Ō, (1, h, j), (TILE_D, 1, TILE_L); padding_mode), dims=2)
 
-    q̄_acc = ct.zeros((TILE_D, TILE_L), Tacc)
+    q̄_acc = zeros(Tacc, (TILE_D, TILE_L))
 
     if R isa TileArray
         tiles_per_expert = D_E ÷ TILE_I
-        dr_acc = ct.zeros((1, TILE_L), Tacc)
+        dr_acc = zeros(Tacc, (1, TILE_L))
     end
 
     for i in 1i32:num_i
@@ -77,13 +77,13 @@ function mhffn_bwd_dq(
         u = ct.load(U, (i, 1, h), (TILE_I, TILE_D); padding_mode)
         v = ct.load(V, (1, i, h), (TILE_D, TILE_I); padding_mode)
 
-        m = muladd(k → Tc, q → Tc, ct.zeros((TILE_I, TILE_L), Tacc))
-        n = muladd(u → Tc, q → Tc, ct.zeros((TILE_I, TILE_L), Tacc))
+        m = muladd(k → Tc, q → Tc, zeros(Tacc, (TILE_I, TILE_L)))
+        n = muladd(u → Tc, q → Tc, zeros(Tacc, (TILE_I, TILE_L)))
 
         sig = 1 ./ (1 .+ exp.(0 .- m))
         silu_m = m .* sig
 
-        ā = muladd((v)ᵀ → Tc, ō → Tc, ct.zeros((TILE_I, TILE_L), Tacc))
+        ā = muladd((v)ᵀ → Tc, ō → Tc, zeros(Tacc, (TILE_I, TILE_L)))
 
         dsilu_dm = sig .* (1 .+ m .* (1 .- sig))
 
@@ -97,7 +97,7 @@ function mhffn_bwd_dq(
             # Flush at expert boundary (TILE_I divides D_E, so this is exact)
             if iszero(mod(i, tiles_per_expert))
                 ct.store(R̄, (e, h, j), reshape(dr_acc, (1, 1, TILE_L)) → eltype(R̄))
-                dr_acc = ct.zeros((1, TILE_L), Tacc)
+                dr_acc = zeros(Tacc, (1, TILE_L))
             end
 
             M̄ = ā .* n .* dsilu_dm .* r
@@ -131,9 +131,9 @@ function mhffn_bwd_dkuv(
     u = ct.load(U, (i, 1, h), (TILE_I, TILE_D); padding_mode)
     v = ct.load(V, (1, i, h), (TILE_D, TILE_I); padding_mode)
 
-    k̄_acc = ct.zeros((TILE_I, TILE_D), Tacc)
-    ū_acc = ct.zeros((TILE_I, TILE_D), Tacc)
-    v̄_acc = ct.zeros((TILE_D, TILE_I), Tacc)
+    k̄_acc = zeros(Tacc, (TILE_I, TILE_D))
+    ū_acc = zeros(Tacc, (TILE_I, TILE_D))
+    v̄_acc = zeros(Tacc, (TILE_D, TILE_I))
 
     if R isa TileArray
         tiles_per_expert = D_E ÷ TILE_I
@@ -145,15 +145,15 @@ function mhffn_bwd_dkuv(
         q = dropdims(ct.load(Q, (1, h, j), (TILE_D, 1, TILE_L); padding_mode), dims=2)
         ō = dropdims(ct.load(Ō, (1, h, j), (TILE_D, 1, TILE_L); padding_mode), dims=2)
 
-        m = muladd(k → Tc, q → Tc, ct.zeros((TILE_I, TILE_L), Tacc))
-        n = muladd(u → Tc, q → Tc, ct.zeros((TILE_I, TILE_L), Tacc))
+        m = muladd(k → Tc, q → Tc, zeros(Tacc, (TILE_I, TILE_L)))
+        n = muladd(u → Tc, q → Tc, zeros(Tacc, (TILE_I, TILE_L)))
 
         sig = 1 ./ (1 .+ exp.(0 .- m))
         silu_m = m .* sig
 
         a = silu_m .* n
 
-        ā = muladd((v)ᵀ → Tc, ō → Tc, ct.zeros((TILE_I, TILE_L), Tacc))
+        ā = muladd((v)ᵀ → Tc, ō → Tc, zeros(Tacc, (TILE_I, TILE_L)))
 
         dsilu_dm = sig .* (1 .+ m .* (1 .- sig))
 

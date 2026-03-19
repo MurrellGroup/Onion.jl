@@ -11,7 +11,7 @@ function fused_add_rms_norm_fwd(
     num_tiles = ct.num_tiles(X, 1, (TILE_M, 1))
     M = size(X, 1)
 
-    ss = ct.zeros((TILE_M,), Float32)
+    ss = zeros(Float32, TILE_M)
     for i in 1i32:num_tiles
         r = ct.load(Residual, (i, bid_n), (TILE_M,); padding_mode) → Float32
         x = ct.load(X, (i, bid_n), (TILE_M,); padding_mode) → Float32

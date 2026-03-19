@@ -9,7 +9,7 @@ function layer_norm_fwd(
     num_tiles = ct.num_tiles(X, 1, (TILE_M, 1))
     M = size(X, 1)
 
-    mean = ct.zeros((TILE_M,), Float32)
+    mean = zeros(Float32, TILE_M)
     for i in 1i32:num_tiles
         x = ct.load(X, (i, bid_n), (TILE_M,); padding_mode)
         mean = mean .+ x
@@ -17,10 +17,10 @@ function layer_norm_fwd(
     mean = sum(mean) / M
     isnothing(Mean) || (Mean[bid_n] = mean)
 
-    var = ct.zeros((TILE_M,), Float32)
+    var = zeros(Float32, TILE_M)
     for i in 1i32:num_tiles
         x = ct.load(X, (i, bid_n), (TILE_M,); padding_mode)
-        mask = ((i - 1i32) * Int32(TILE_M) .+ ct.arange((TILE_M,), Int32)) .<= M
+        mask = ((i - 1i32) * Int32(TILE_M) .+ ct.arange(TILE_M, Int32)) .<= M
         centered_x = ifelse.(mask, x .- mean, 0.0f0)
         var = var .+ (centered_x .* centered_x)
     end
@@ -49,7 +49,7 @@ end
     wȳ = w .* ȳ
 
     # Mask for valid elements
-    indices = ct.arange((TILE_M,), Int32)
+    indices = ct.arange(TILE_M, Int32)
     offset = (i - 1i32) * Int32(TILE_M)
     global_indices = offset .+ indices
     mask = global_indices .<= M
@@ -73,8 +73,8 @@ function layer_norm_bwd_dx(
     rstd = Rstd[bid_n]
     mean = Mean[bid_n]
 
-    c1 = ct.zeros((TILE_M,), Float32)
-    c2 = ct.zeros((TILE_M,), Float32)
+    c1 = zeros(Float32, TILE_M)
+    c2 = zeros(Float32, TILE_M)
     for i in 1i32:num_tiles
         _, xhat, wȳ = bwd_helper(X, W, Ȳ, bid_n, i, mean, rstd, TILE_M, M)
         c1 = c1 .+ (xhat .* wȳ)
@@ -108,8 +108,8 @@ function layer_norm_bwd_dx_partial_dwdb(
     mean = Mean[bid_n]
     rstd = Rstd[bid_n]
 
-    c1 = ct.zeros((TILE_M,), Float32)
-    c2 = ct.zeros((TILE_M,), Float32)
+    c1 = zeros(Float32, TILE_M)
+    c2 = zeros(Float32, TILE_M)
     for i in 1i32:num_tiles
         _, xhat, wȳ = bwd_helper(X, W, Ȳ, bid_n, i, mean, rstd, TILE_M, M)
         c1 = c1 .+ (xhat .* wȳ)
@@ -155,8 +155,8 @@ function layer_norm_bwd_dwdb(
     bid = ct.bid(1)
     num_tiles = ct.num_tiles(W̄, 2, (TILE_F, TILE_G))
 
-    w̄ = ct.zeros((TILE_F, TILE_G), Float32)
-    b̄ = ct.zeros((TILE_F, TILE_G), Float32)
+    w̄ = zeros(Float32, (TILE_F, TILE_G))
+    b̄ = zeros(Float32, (TILE_F, TILE_G))
     for i in 1i32:num_tiles
         w̄ = w̄ .+ ct.load(W̄, (bid, i), (TILE_F, TILE_G); padding_mode)
         b̄ = b̄ .+ ct.load(B̄, (bid, i), (TILE_F, TILE_G); padding_mode)

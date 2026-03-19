@@ -21,7 +21,7 @@ function deltanet_recurrent_decode_fwd(
     num_tiles = cld(Int32(Dk), Int32(BLOCK_DK))
 
     # Decay state + accumulate S^T @ k
-    acc = ct.zeros((Dv,), Float32)
+    acc = zeros(Float32, Dv)
     for i in 1i32:num_tiles
         s = ct.load(S, (i, 1, h, b), (BLOCK_DK, Dv); padding_mode) → Float32
         k = ct.load(K, (i, h, b), (BLOCK_DK,); padding_mode) → Float32
@@ -35,7 +35,7 @@ function deltanet_recurrent_decode_fwd(
     delta = beta .* (v .- acc)
 
     # Rank-1 update + output query
-    output = ct.zeros((Dv,), Float32)
+    output = zeros(Float32, Dv)
     for i in 1i32:num_tiles
         s = ct.load(S, (i, 1, h, b), (BLOCK_DK, Dv); padding_mode) → Float32
         k = ct.load(K, (i, h, b), (BLOCK_DK,); padding_mode) → Float32
