@@ -22,10 +22,12 @@ function AttentionPairBias(
     compute_pair_bias::Bool=true,
     use_qk_norm::Bool=false,
 )
-    attn = Attention(c_s, num_heads;
+    attn = Attention(;
+        hidden_size = c_s,
+        num_heads = num_heads,
         qkv_bias = true,
         qk_norm  = use_qk_norm,
-        g1_gate  = Modulator(c_s => num_heads * (c_s ÷ num_heads), NNlib.sigmoid),
+        gate  = Modulator(c_s => num_heads * (c_s ÷ num_heads), NNlib.sigmoid),
     )
     if compute_pair_bias
         proj_z_norm = LayerNorm(c_z)

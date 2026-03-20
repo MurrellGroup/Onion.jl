@@ -4,7 +4,7 @@
 """
     x = @lazy y + z
 
-Lazy broadcasting macro, for use in `apply!` rules. It broadcasts like `@.`
+Lazy broadcasting macro. Broadcasts like `@.`
 but does not materialise, returning a `Broadcasted` object for later use.
 Beware that mutation of arguments will affect the result,
 and that if it is used in two places, work will be done twice.

@@ -41,9 +41,10 @@ function TransformerBlock(
     pair_proj = identity,
     kws...
 )
+    attention = Attention(; hidden_size=in_dim, num_heads=n_heads, num_kv_heads=n_kv_heads, kws...)
+    attention.o_proj.weight .*= out_init_scale
     return TransformerBlock(
-        Attention(in_dim, n_heads, n_kv_heads; out_init_scale, kws...),
-        feed_forward, attention_norm, ffn_norm, pair_proj
+        attention, feed_forward, attention_norm, ffn_norm, pair_proj
     )
 end
 
@@ -84,7 +85,7 @@ kv_cache(layer::TransformerBlock, args...) = kv_cache(layer.attention, args...)
 end
 
 function STRINGBlock(block::TransformerBlock, d_coords::Int; kws...)
-    rope = STRINGRoPE(block.attention.head_dim, block.attention.n_heads, d_coords; kws...)
+    rope = STRINGRoPE(block.attention.head_dim, block.attention.num_heads, d_coords; kws...)
     return STRINGBlock(block, rope)
 end
 

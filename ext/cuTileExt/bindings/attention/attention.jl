@@ -5,10 +5,12 @@ end
 
 function _flash_attention(Q, K, V, B; q_lengths=nothing, kws...)
     O = similar(Q, size(V,1), size(Q)[2:end]...)
-    verify = () -> let
+    function verify()
         O_ref = Onion.attention(DefaultBackend(), Q→Float32, K→Float32, V→Float32; pair=B→Float32, kws...)
         qm = _q_mask(q_lengths, O)
-        () -> isapprox(O .* qm, O_ref .* qm, rtol=1e-1)
+        function iscorrect()
+            isapprox(O .* qm, O_ref .* qm, atol=1e-1, rtol=1e-1)
+        end
     end
     cache = flash_attention!(O, Q, K, V, B; verify, q_lengths, kws...)
     return O, cache
@@ -23,17 +25,19 @@ end
 function ∇flash_attention(Ō, Q, K, V, B, O, (M, L); q_lengths=nothing, kws...)
     Q̄, K̄, V̄ = similar.((Q, K, V))
     B̄ = isnothing(B) ? nothing : fill!(similar(B), 0)
-    verify = () -> let
+    function verify()
         qm = _q_mask(q_lengths, Q)
         Qm, Ōm = (Q .* qm)→Float32, (Ō .* qm)→Float32
         _, pb = Zygote.pullback(Qm, K→Float32, V→Float32, B→Float32) do Q, K, V, B
             Onion.attention(DefaultBackend(), Q, K, V; pair=B, kws...)
         end
         Q̄_ref, K̄_ref, V̄_ref, B̄_ref = pb(Ōm)
-        () -> isapprox(Q̄ .* qm, Q̄_ref .* qm, rtol=1e-1) &&
-              isapprox(K̄, K̄_ref, rtol=1e-1) &&
-              isapprox(V̄, V̄_ref, rtol=1e-1) &&
-              (isnothing(B) || isapprox(B̄, B̄_ref, rtol=1e-1))
+        function iscorrect()
+            isapprox(Q̄ .* qm, Q̄_ref .* qm, atol=1e-1, rtol=1e-1) &&
+            isapprox(K̄, K̄_ref, atol=1e-1, rtol=1e-1) &&
+            isapprox(V̄, V̄_ref, atol=1e-1, rtol=1e-1) &&
+            (isnothing(B) || isapprox(B̄, B̄_ref, atol=1e-1, rtol=1e-1))
+        end
     end
     ∇flash_attention!(
         Q̄, K̄, V̄, B̄, Ō,

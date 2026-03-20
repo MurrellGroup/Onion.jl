@@ -11,7 +11,9 @@ function _rms_norm(::DefaultBackend,
 end
 
 function rms_norm(b::Backend,
-    x::AbstractArray; dims::Union{Int,Val{1}} = Val(1), eps
+    x::AbstractArray;
+    dims::Union{Int,Val{1}} = Val(1),
+    eps
 )
     if dims isa Val{1}
         x′ = reshape(x, Keep(), :)

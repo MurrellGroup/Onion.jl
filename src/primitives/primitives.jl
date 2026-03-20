@@ -125,3 +125,24 @@ Each step applies `Y = aX + bXXᵀX + cXXᵀXXᵀX` (tall) or the wide variant.
 """
 @primitive _newton_schulz as newton_schulz
 include("newton_schulz.jl")
+
+"""
+    deltanet_recurrent_decode(q, k, v, beta, gate, state) -> (output, state)
+
+Gated DeltaNet recurrent step (decode). Updates state in-place:
+    S = exp(gate) * S
+    delta = beta * (v - Sᵀk)
+    S += k ⊗ delta
+    output = Sᵀq
+"""
+@primitive _deltanet_recurrent_decode as deltanet_recurrent_decode
+include("recurrent/deltanet.jl")
+
+"""
+    causal_conv1d(x, conv_state, weight, bias; silu) -> (y, conv_state)
+
+Causal depthwise conv1d state update for decode. Shifts state, inserts x,
+convolves with weight, optionally applies SiLU.
+"""
+@primitive _causal_conv1d as causal_conv1d
+include("recurrent/causal_conv1d.jl")
