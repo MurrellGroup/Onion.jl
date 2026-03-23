@@ -34,18 +34,18 @@ Backends are concrete structs, all directly subtyping `Backend`:
 ```
 Backend (abstract root)
 ├── DefaultBackend   (CPU/GPU fallback implementations)
-├── NNopBackend      (KernelAbstractions-based — FluxML/NNop.jl)
-└── cuTileBackend    (cuTile DSL-generated CUDA kernels)
+├── NNkernelsBackend      (KernelAbstractions-based — FluxML/NNkernels.jl)
+└── TillitBackend    (cuTile DSL-generated CUDA kernels)
 ```
 
 There is no abstract subtype hierarchy. Instead, backends define **explicit fallback methods**:
 
 ```julia
 # In ext/cuTileExt — unimplemented primitives delegate to DefaultBackend:
-(p::Primitive)(::cuTileBackend, args...; kws...) = p(DefaultBackend(), args...; kws...)
+(p::Primitive)(::TillitBackend, args...; kws...) = p(DefaultBackend(), args...; kws...)
 
-# In ext/NNopExt — same pattern:
-(p::Primitive)(::NNopBackend, args...; kws...) = p(DefaultBackend(), args...; kws...)
+# In ext/NNkernelsExt — same pattern:
+(p::Primitive)(::NNkernelsBackend, args...; kws...) = p(DefaultBackend(), args...; kws...)
 ```
 
 A backend only needs to implement the primitives it specializes; the rest fall through via the explicit fallback.
@@ -67,9 +67,9 @@ Implementations that need `Rules` can accept them explicitly; otherwise they are
 
 Three mechanisms, in order of precedence:
 
-1. **`Rules`** (explicit, type-stable): `p(Rules(backend=cuTileBackend()), x)`
-2. **`withbackend` scope** (task-local): `withbackend(cuTileBackend()) do ... end`
-3. **`backend!`** (global): `backend!(cuTileBackend())`
+1. **`Rules`** (explicit, type-stable): `p(Rules(backend=TillitBackend()), x)`
+2. **`withbackend` scope** (task-local): `withbackend(TillitBackend()) do ... end`
+3. **`backend!`** (global): `backend!(TillitBackend())`
 
 `DefaultBackend()` is set as the global backend in `Onion.__init__()`.
 
@@ -77,19 +77,19 @@ Three mechanisms, in order of precedence:
 
 ```julia
 # Direct backend instance:
-Rules(backend=cuTileBackend())
+Rules(backend=TillitBackend())
 
 # Per-primitive selection — any callable (receives the primitive, returns a Backend):
-Rules(backend=Returns(cuTileBackend()))    # same backend for all
+Rules(backend=Returns(TillitBackend()))    # same backend for all
 Rules(backend=my_selector_function)        # custom dispatch on primitive
 
 # OnionStyle.@staticmap helper — compile-time dispatch on primitive identity:
-Rules(backend = @staticmap attention => cuTileBackend(), _ => DefaultBackend())
+Rules(backend = @staticmap attention => TillitBackend(), _ => DefaultBackend())
 
 # Block syntax with grouping:
 Rules(backend = @staticmap begin
-    _ => cuTileBackend()
-    attention => NNopBackend()
+    _ => TillitBackend()
+    attention => NNkernelsBackend()
     {rms_norm, softmax} => DefaultBackend()
 end)
 ```

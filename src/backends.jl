@@ -2,6 +2,6 @@ using OnionCore: Backend
 
 struct DefaultBackend <: Backend end
 
-struct NNopBackend <: Backend end
+struct NNkernelsBackend <: Backend end
 
-struct cuTileBackend <: Backend end
+struct TillitBackend <: Backend end

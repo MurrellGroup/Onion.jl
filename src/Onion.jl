@@ -25,8 +25,8 @@ public decode
 
 include("backends.jl")
 export DefaultBackend
-export NNopBackend
-export cuTileBackend
+export NNkernelsBackend
+export TillitBackend
 
 include("primitives/primitives.jl")
 public Primitive, @primitive

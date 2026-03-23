@@ -11,8 +11,8 @@
         @test Onion.backend() isa DefaultBackend
 
         # withbackend temporarily changes backend
-        Onion.withbackend(NNopBackend()) do
-            @test Onion.backend() isa NNopBackend
+        Onion.withbackend(NNkernelsBackend()) do
+            @test Onion.backend() isa NNkernelsBackend
         end
 
         # After scope: back to DefaultBackend
@@ -42,7 +42,7 @@
 
     @testset "backend types" begin
         @test DefaultBackend() isa Onion.Backend
-        @test NNopBackend() isa Onion.Backend
-        @test cuTileBackend() isa Onion.Backend
+        @test NNkernelsBackend() isa Onion.Backend
+        @test TillitBackend() isa Onion.Backend
     end
 end

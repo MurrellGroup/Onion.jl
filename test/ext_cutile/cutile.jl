@@ -11,7 +11,7 @@ using NNlib: swish
     @testset "softmax matches DefaultBackend" begin
         x = CUDA.randn(Float32, 16, 8)
         ref = Onion.softmax(DefaultBackend(), x)
-        y = Onion.softmax(cuTileBackend(), x)
+        y = Onion.softmax(TillitBackend(), x)
         @test y ≈ ref
     end
 
@@ -19,7 +19,7 @@ using NNlib: swish
         x = CUDA.randn(Float32, 16, 8)
         w = CUDA.ones(Float32, 16)
         ref = Onion.rms_norm(DefaultBackend(), x, w; eps=1f-5, offset=0f0)
-        y = Onion.rms_norm(cuTileBackend(), x, w; eps=1f-5, offset=0f0)
+        y = Onion.rms_norm(TillitBackend(), x, w; eps=1f-5, offset=0f0)
         @test y ≈ ref
     end
 
@@ -28,7 +28,7 @@ using NNlib: swish
         w = CUDA.ones(Float32, 16)
         b = CUDA.zeros(Float32, 16)
         ref = Onion.layer_norm(DefaultBackend(), x, w, b; eps=1f-6)
-        y = Onion.layer_norm(cuTileBackend(), x, w, b; eps=1f-6)
+        y = Onion.layer_norm(TillitBackend(), x, w, b; eps=1f-6)
         @test y ≈ ref
     end
 
@@ -37,7 +37,7 @@ using NNlib: swish
         W = CUDA.randn(Float32, 12, 8)
         b = CUDA.randn(Float32, 12)
         ref = Onion.linear(DefaultBackend(), x, W, b)
-        y = Onion.linear(cuTileBackend(), x, W, b)
+        y = Onion.linear(TillitBackend(), x, W, b)
         @test y ≈ ref
     end
 
@@ -46,7 +46,7 @@ using NNlib: swish
         k = CUDA.randn(Float32, 8, 4, 2, 1)
         v = CUDA.randn(Float32, 8, 4, 2, 1)
         ref = Onion.attention(DefaultBackend(), q, k, v, causal=false)
-        y = Onion.attention(cuTileBackend(), q, k, v, causal=false)
+        y = Onion.attention(TillitBackend(), q, k, v, causal=false)
         @test y ≈ ref rtol=1f-3
     end
 
@@ -56,7 +56,7 @@ using NNlib: swish
         Wu = CUDA.randn(Float32, 16, 8)
         Wd = CUDA.randn(Float32, 8, 16)
         ref = Onion.glu_ffn(DefaultBackend(), x, Wg, Wu, Wd)
-        y = Onion.glu_ffn(cuTileBackend(), x, Wg, Wu, Wd)
+        y = Onion.glu_ffn(TillitBackend(), x, Wg, Wu, Wd)
         @test y ≈ ref rtol=1f-3
     end
 
@@ -66,7 +66,7 @@ using NNlib: swish
         Ku = CUDA.randn(Float32, 12, 8, 2)
         V = CUDA.randn(Float32, 8, 12, 2)
         ref = Onion.multihead_ffn(DefaultBackend(), Q, Kg, Ku, V, NNlib.swish)
-        y = Onion.multihead_ffn(cuTileBackend(), Q, Kg, Ku, V, NNlib.swish)
+        y = Onion.multihead_ffn(TillitBackend(), Q, Kg, Ku, V, NNlib.swish)
         @test y ≈ ref rtol=1f-3
     end
 
@@ -76,21 +76,21 @@ using NNlib: swish
         @testset "tall (M > N)" begin
             X = CUDA.randn(Float32, 16, 8) * 0.1f0
             ref = Onion.newton_schulz(DefaultBackend(), X, coeffs)
-            y = Onion.newton_schulz(cuTileBackend(), X, coeffs, arithmetic=Float32)
+            y = Onion.newton_schulz(TillitBackend(), X, coeffs, arithmetic=Float32)
             @test y ≈ ref rtol=1f-3
         end
 
         @testset "wide (M < N)" begin
             X = CUDA.randn(Float32, 8, 16) * 0.1f0
             ref = Onion.newton_schulz(DefaultBackend(), X, coeffs)
-            y = Onion.newton_schulz(cuTileBackend(), X, coeffs, arithmetic=Float32)
+            y = Onion.newton_schulz(TillitBackend(), X, coeffs, arithmetic=Float32)
             @test y ≈ ref rtol=1f-3
         end
 
         @testset "3D batched" begin
             X = CUDA.randn(Float32, 16, 8, 3) * 0.1f0
             ref = Onion.newton_schulz(DefaultBackend(), X, coeffs)
-            y = Onion.newton_schulz(cuTileBackend(), X, coeffs, arithmetic=Float32)
+            y = Onion.newton_schulz(TillitBackend(), X, coeffs, arithmetic=Float32)
             @test y ≈ ref rtol=1f-3
         end
     end
