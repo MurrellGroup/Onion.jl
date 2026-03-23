@@ -3,8 +3,7 @@ using NNlib: swish
 function Onion.glu_ffn!(::TillitBackend,
     O, X, Wᵍ, Wᵘ, Wᵈ,
     ::typeof(Onion.swish);
-    Gate = similar(X, K, N),
-    Up   = similar(X, K, N),
+    Gate, Up,
     kws...
 )
     function verify()
@@ -13,14 +12,13 @@ function Onion.glu_ffn!(::TillitBackend,
             isapprox(O, O_ref, atol=1e-1, rtol=1e-1)
         end
     end
-    O = swiglu_ffn!(O, X, Wᵍ, Wᵘ, Wᵈ; Gate, Up, verify, kws...)
+    O = Tillit.swiglu_ffn!(O, X, Wᵍ, Wᵘ, Wᵈ; Gate, Up, verify, kws...)
     return O
 end
 
-function CRC.rrule(::typeof(glu_ffn!), backend::TillitBackend,
+function CRC.rrule(::typeof(Onion.glu_ffn!), backend::TillitBackend,
     O, X, Wᵍ, Wᵘ, Wᵈ, ::typeof(Onion.swish);
-    Gate = similar(X, K, N),
-    Up   = similar(X, K, N),
+    Gate, Up,
     kws...
 )
     Onion.glu_ffn!(backend, O, X, Wᵍ, Wᵘ, Wᵈ, Onion.swish; Gate, Up, kws...)
@@ -55,10 +53,24 @@ function CRC.rrule(::typeof(glu_ffn!), backend::TillitBackend,
                 isapprox(W̄ᵘ, W̄ᵘ_ref, atol=1e-1, rtol=1e-1)
             end
         end
-        ∇swiglu_ffn!(X̄, W̄ᵍ, W̄ᵘ, W̄ᵈ, Ō, X, Wᵍ, Wᵘ, Wᵈ;
+        Tillit.∇swiglu_ffn!(X̄, W̄ᵍ, W̄ᵘ, W̄ᵈ, Ō, X, Wᵍ, Wᵘ, Wᵈ;
             Gate, Up,
             verify_x, verify_w_down, verify_w)
         return NoTangent(), NoTangent(), NoTangent(), X̄, W̄ᵍ, W̄ᵘ, W̄ᵈ
     end
     return O, glu_ffn_pullback
+end
+
+function Onion.glu_ffn(backend::TillitBackend,
+    X::AbstractMatrix,
+    Wᵍ::AbstractMatrix, Wᵘ::AbstractMatrix, Wᵈ::AbstractMatrix,
+    act = Onion.swish;
+    kws...
+)
+    K, N = size(Wᵍ, 1), size(X, 2)
+    O = similar(X)
+    Gate = similar(X, K, N)
+    Up = similar(X, K, N)
+    O = Onion.glu_ffn!(backend, O, X, Wᵍ, Wᵘ, Wᵈ, act; Gate, Up, kws...)
+    return O
 end

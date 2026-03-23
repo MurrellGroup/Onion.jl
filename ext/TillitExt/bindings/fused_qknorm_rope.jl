@@ -21,7 +21,7 @@ function Onion.fused_qknorm_rope!(::TillitBackend,
         end
     end
 
-    Tillitfused_qknorm_rope!(q_out, k_out, q_norm_weight, k_norm_weight, cos_1d, sin_1d;
+    Tillit.fused_qknorm_rope!(q_out, k_out, q_norm_weight, k_norm_weight, cos_1d, sin_1d;
         rotary_dim, eps=Float32(eps), offset=Float32(offset))
     return q_out, k_out
 end

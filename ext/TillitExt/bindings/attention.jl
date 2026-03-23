@@ -17,7 +17,7 @@ function _attention!(
             isapprox(O .* qm, O_ref .* qm, atol=1e-1, rtol=1e-1)
         end
     end
-    Tillit.attention!(O, Q, K, V, pair; q_lengths, kws...)
+    Tillit.attention!(O, Q, K, V, B; q_lengths, kws...)
     return O
 end
 

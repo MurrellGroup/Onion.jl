@@ -13,6 +13,8 @@ using OnionStyle
 using ConcreteStructs: @concrete
 using ChainRulesCore: @ignore_derivatives
 
+using Rewrap
+
 @republic import Optimisers: trainable
 
 include("utils/utils.jl")

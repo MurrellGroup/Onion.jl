@@ -7,10 +7,10 @@ function Onion.deltanet_recurrent_decode!(::TillitBackend,
     function verify()
         tol = eltype(q) === Float32 ? 1e-3 : 1e-1
         O_ref, state_ref = Onion.deltanet_recurrent_decode(DefaultBackend(),
-            q, k, v, beta, gate, copy(state))
+            Array(q), Array(k), Array(v), Array(beta), Array(gate), Array(state))
         function iscorrect()
-            isapprox(O, O_ref; atol=tol, rtol=tol) &&
-            isapprox(state, state_ref; atol=tol, rtol=tol)
+            isapprox(Array(O), O_ref; atol=tol, rtol=tol) &&
+            isapprox(Array(state), state_ref; atol=tol, rtol=tol)
         end
     end
 

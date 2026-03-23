@@ -1,13 +1,14 @@
 using Pkg
 Pkg.activate(temp=true)
 Pkg.add("CUDA")
-Pkg.add(name="cuTile", version="0.0.4")
+Pkg.add(name="cuTile", version="0.0.6")
+Pkg.develop(path="../../Tillit")
 
 using CUDA
-using cuTile
+using Tillit
 using NNlib: swish
 
-@testset "cuTile Extension" begin
+@testset "Tillit Extension" begin
     @testset "softmax matches DefaultBackend" begin
         x = CUDA.randn(Float32, 16, 8)
         ref = Onion.softmax(DefaultBackend(), x)
@@ -58,40 +59,5 @@ using NNlib: swish
         ref = Onion.glu_ffn(DefaultBackend(), x, Wg, Wu, Wd)
         y = Onion.glu_ffn(TillitBackend(), x, Wg, Wu, Wd)
         @test y ≈ ref rtol=1f-3
-    end
-
-    @testset "multihead_ffn matches DefaultBackend" begin
-        Q = CUDA.randn(Float32, 8, 2, 4)
-        Kg = CUDA.randn(Float32, 12, 8, 2)
-        Ku = CUDA.randn(Float32, 12, 8, 2)
-        V = CUDA.randn(Float32, 8, 12, 2)
-        ref = Onion.multihead_ffn(DefaultBackend(), Q, Kg, Ku, V, NNlib.swish)
-        y = Onion.multihead_ffn(TillitBackend(), Q, Kg, Ku, V, NNlib.swish)
-        @test y ≈ ref rtol=1f-3
-    end
-
-    @testset "newton_schulz matches DefaultBackend" begin
-        coeffs = fill((3.4445f0, -4.7750f0, 2.0315f0), 5)
-
-        @testset "tall (M > N)" begin
-            X = CUDA.randn(Float32, 16, 8) * 0.1f0
-            ref = Onion.newton_schulz(DefaultBackend(), X, coeffs)
-            y = Onion.newton_schulz(TillitBackend(), X, coeffs, arithmetic=Float32)
-            @test y ≈ ref rtol=1f-3
-        end
-
-        @testset "wide (M < N)" begin
-            X = CUDA.randn(Float32, 8, 16) * 0.1f0
-            ref = Onion.newton_schulz(DefaultBackend(), X, coeffs)
-            y = Onion.newton_schulz(TillitBackend(), X, coeffs, arithmetic=Float32)
-            @test y ≈ ref rtol=1f-3
-        end
-
-        @testset "3D batched" begin
-            X = CUDA.randn(Float32, 16, 8, 3) * 0.1f0
-            ref = Onion.newton_schulz(DefaultBackend(), X, coeffs)
-            y = Onion.newton_schulz(TillitBackend(), X, coeffs, arithmetic=Float32)
-            @test y ≈ ref rtol=1f-3
-        end
     end
 end

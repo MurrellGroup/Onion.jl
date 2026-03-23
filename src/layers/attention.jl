@@ -29,9 +29,9 @@ output = attn(x)
     hidden_size::Int
     num_heads::Int
     num_kv_heads::Int = num_heads
-    head_dim = hidden_size ÷ num_heads
-    qkv_bias = false
-    qk_norm  = false
+    head_dim::Int = hidden_size ÷ num_heads
+    qkv_bias::Bool = false
+    qk_norm::Bool  = false
 
     q_norm = qk_norm ? RMSNorm(head_dim) : identity
     k_norm = qk_norm ? RMSNorm(head_dim) : identity

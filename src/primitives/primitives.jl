@@ -1,17 +1,3 @@
-# Primitives are backend-dispatched kernel contracts: callable singletons (<: Function)
-# that backends extend with concrete implementations.
-#
-#   linear!(::DefaultBackend, y, x, W, b) = ...   # mutating impl
-#   linear(::DefaultBackend, x, W, b) = ...        # AD-friendly impl
-#
-# @primitive linear   declares a Primitive callable + dispatch chain.
-# @primitive linear!  same, for mutating variant (name ending in ! detected).
-#
-# Dispatch chain:
-#   linear(args...) → linear(Rules(), args...)
-#                   → linear(backend(r, linear), r, args...)
-#                   → linear(backend, args...)  ← backend impl
-
 abstract type Primitive <: Function end
 
 using Base.ScopedValues: ScopedValue, with
@@ -28,11 +14,20 @@ backend() = @something(
 resolve_backend(b::Backend, ::Primitive) = b
 resolve_backend(f::Function, p::Primitive) = f(p)::Backend
 
-backend(rules::Rules) = get(rules, :backend, backend())
+backend(rules::Rules) = get(() -> backend(), rules, :backend)
 backend(rules::Rules, p::Primitive) = resolve_backend(backend(rules), p)
 
-backend!(b::Backend) = (GLOBAL_BACKEND[] = b; nothing)
+function backend!(b::Backend)
+    GLOBAL_BACKEND[] = b
+    return nothing
+end
+
 withbackend(f::Function, b::Backend) = with(f, SCOPED_BACKEND => b)
+
+(p::Primitive)(args...; kws...) = p(Rules(), args...; kws...)
+(p::Primitive)(r::Rules, args...; kws...) = p(backend(r, p), r, args...; kws...)
+(p::Primitive)(b::Backend, r::Rules, args...; kws...) = p(b, args...; kws...)
+(p::Primitive)(b::Backend, args...; kws...) = throw(MethodError(p, (b, args...)))
 
 macro primitive(name)
     T = Symbol('#', name)
@@ -40,12 +35,6 @@ macro primitive(name)
         struct $T <: $Primitive end
         Base.@__doc__ const $name = $T()
         $(Expr(:public, name))
-        $name(args...; kws...) =
-            $name($Rules(), args...; kws...)
-        $name(r::$Rules, args...; kws...) =
-            $name($backend(r, $name), r, args...; kws...)
-        $name(b::$Backend, r::$Rules, args...; kws...) =
-            $name(b, args...; kws...)
     end)
 end
 
@@ -70,3 +59,4 @@ include("attention/attention.jl")
 include("feedforward/feedforward.jl")
 include("contraction/combine_projections.jl")
 include("recurrent/recurrent.jl")
+include("rotary.jl")

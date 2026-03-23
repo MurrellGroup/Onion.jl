@@ -5,12 +5,6 @@ import ChainRulesCore: rrule
 
 import Zygote
 
-# Note: no generic Primitive fallback here — it creates ambiguity with
-# the @primitive dispatch chain `(b::Backend, r::Rules, args...)`.
-# All used primitives have explicit Tillit methods below.
-# Unimplemented ones fall through to `(b::Backend, ...)` defaults,
-# which work on CuArrays via GPUArrays broadcasting.
-
 include("attention.jl")
 
 include("fused_qknorm_rope.jl")

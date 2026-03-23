@@ -23,7 +23,7 @@ function deltanet_recurrent_decode!(::DefaultBackend,
 
     v_per_k = cld(size(v, 2), size(k, 2))
     if v_per_k > 1
-        q, k = repeat.((q, k), einops"Dk Hk ... -> Dk (Hk r) ..."; r=v_per_k)
+        q, k = repeat.((q, k), einops"Dk Hk ... -> Dk (r Hk) ..."; r=v_per_k)
     end
 
     sᵀk = einsum(state, k, einops"Dk Dv h ..., Dk h ... -> 1 Dv h ...")
