@@ -2,11 +2,9 @@
     Primitive <: Function
 
 Abstract type for all primitives. Subtypes are singleton callable types
-created with `@primitive` and dispatched by [`Backend`](@ref).
+created with `@primitive`.
 """
 abstract type Primitive <: Function end
-
-(p::Primitive)(b::Backend, args...; kws...) = throw(MethodError(p, (b, args...)))
 
 macro primitive(name)
     T = Symbol('#', name)

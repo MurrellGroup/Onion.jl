@@ -3,7 +3,7 @@ using NNlib: NNlib
 """
     softmax(x::AbstractMatrix)
 
-Softmax on dim 1. Input must be 2D — callers reshape if needed.
+Softmax over dimension 1. Input must be 2D — callers reshape if needed.
 """
 @primitive softmax
 @primitive softmax!
