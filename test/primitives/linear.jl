@@ -11,15 +11,16 @@
     end
 
     @testset "without bias" begin
-        y = Onion.linear(DefaultBackend(), x, W, false)
+        y = Onion.linear(DefaultBackend(), x, W, nothing)
         @test size(y) == (d_out, batch)
         @test y ≈ W * x
     end
 
-    @testset "top-level dispatch (no explicit backend)" begin
+    @testset "BackendMap dispatch" begin
         b = randn(Float32, d_out)
+        mb = Onion.BackendMap(_ -> DefaultBackend())
         y_explicit = Onion.linear(DefaultBackend(), x, W, b)
-        y_implicit = Onion.linear(x, W, b)
-        @test y_explicit ≈ y_implicit
+        y_multi = Onion.linear(mb, x, W, b)
+        @test y_explicit ≈ y_multi
     end
 end

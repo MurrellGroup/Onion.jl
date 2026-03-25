@@ -27,9 +27,10 @@
         @test all(isapprox.(rms, 1f0; atol=1f-3))
     end
 
-    @testset "top-level dispatch" begin
+    @testset "BackendMap dispatch" begin
+        mb = Onion.BackendMap(_ -> DefaultBackend())
         y_explicit = Onion.rms_norm(DefaultBackend(), x, w; eps=1f-5, offset=0f0)
-        y_implicit = Onion.rms_norm(x, w; eps=1f-5, offset=0f0)
-        @test y_explicit ≈ y_implicit
+        y_multi = Onion.rms_norm(mb, x, w; eps=1f-5, offset=0f0)
+        @test y_explicit ≈ y_multi
     end
 end

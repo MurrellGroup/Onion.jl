@@ -8,13 +8,6 @@ unval(x) = x
 
 with_default_rng(init) = (args...; kws...) -> init(Random.default_rng(), args...; kws...)
 
-"""
-    ofeltype(v::Number, ::AbstractArray{T}) where T = convert(T, v)
-
-Convert `v` to type `T`.
-"""
-ofeltype(v::Number, ::AbstractArray{T}) where T = convert(T, v)
-
 macro constprop(expr::Expr)
     esc(:(Base.@constprop :aggressive $expr))
 end
@@ -27,9 +20,6 @@ export splitaxis
 
 include("lazy.jl")
 export @lazy
-
-include("inplace.jl")
-public @!, inplace
 
 include("like.jl")
 export like, zeros_like, ones_like, falses_like, trues_like

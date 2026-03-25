@@ -11,7 +11,7 @@
         x = randn(Float32, 8, 5)
         y = l(x)
         @test size(y) == (12, 5)
-        @test l.bias === false
+        @test y ≈ l.weight * x
     end
 
     @testset "with bias" begin

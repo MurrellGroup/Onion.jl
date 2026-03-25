@@ -13,7 +13,6 @@ export compose_q_update_vec, compose
 export scale_translation, to_tensor_7, to_tensor_4x4, rigid_index
 
 include("residue_constants.jl")
-# No exports — accessed as module-level constants
 
 include("feats.jl")
 export rigid_from_tensor_4x4

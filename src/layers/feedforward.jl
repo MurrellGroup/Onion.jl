@@ -26,7 +26,7 @@ StarGLU((d1, (d2, d3))::Pair{Int,Pair{Int,Int}}; kws...) = StarGLU(d1, d2, d3; k
 
 function (l::StarGLU)(x::AbstractArray)
     x′ = reshape(x, Keep(), :)
-    y′ = glu_ffn(
+    y′ = glu_ffn(backend(),
         x′,
         l.up.weight, l.gate.weight, l.down.weight,
         l.act

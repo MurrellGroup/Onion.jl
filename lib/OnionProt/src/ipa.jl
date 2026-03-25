@@ -10,7 +10,7 @@ end
 function pairwise_sqeuclidean(x,y)
     A_sqnorms = sum(abs2, x, dims=2)
     B_sqnorms = sum(abs2, y, dims=1)
-    AB_dots = NNlib.batched_mul(x,y)
+    AB_dots = batched_matmul(x,y)
     return A_sqnorms .- 2 .* AB_dots .+ B_sqnorms
 end
 

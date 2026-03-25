@@ -60,8 +60,8 @@ function AdaAffine(
     if init_zero
         scale_proj.weight .= 0
         shift_proj.weight .= 0
-        @assert iszero(scale_proj.bias) "expected scale_proj.bias to be zero"
-        @assert iszero(shift_proj.bias) "expected shift_proj.bias to be zero"
+        @assert isnothing(scale_proj.bias) "expected scale_proj to not have bias"
+        @assert isnothing(shift_proj.bias) "expected shift_proj to not have bias"
     end
     return AdaAffine(f, scale_proj, shift_proj)
 end

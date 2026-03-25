@@ -24,9 +24,10 @@
         @test size(y) == (dim, batch)
     end
 
-    @testset "top-level dispatch" begin
+    @testset "BackendMap dispatch" begin
+        mb = Onion.BackendMap(_ -> DefaultBackend())
         y_explicit = Onion.layer_norm(DefaultBackend(), x, w, b; eps=1f-6)
-        y_implicit = Onion.layer_norm(x, w, b; eps=1f-6)
-        @test y_explicit ≈ y_implicit
+        y_multi = Onion.layer_norm(mb, x, w, b; eps=1f-6)
+        @test y_explicit ≈ y_multi
     end
 end

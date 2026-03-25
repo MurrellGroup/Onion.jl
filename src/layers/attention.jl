@@ -43,7 +43,7 @@ output = attn(x)
     o_proj = Linear(num_heads * head_dim => hidden_size, bias=false)
 end
 
-function forward(layer::Attention, r::Rules,
+function forward(layer::Attention,
     xq, xk = xq;
     rope   = identity,
     rope_k = rope,
@@ -55,7 +55,7 @@ function forward(layer::Attention, r::Rules,
     q, k = layer.q_norm(q), layer.k_norm(k)
     q, k = rope(q), rope_k(k)
     k, v = cache(k, v)
-    x = attention(r, q, k, v; kws...)
+    x = attention(backend(), q, k, v; kws...)
     x = rearrange(x, einops"d l h ... -> (d h) l ..."; h=layer.num_heads)
     x = layer.gate(x, xq)
     return layer.o_proj(x)
@@ -146,7 +146,7 @@ julia> dart(x) |> size
 end
 
 function (dart::DART)(x::AbstractArray; pair_feats=nothing, kws...)
-    h = rearrange(x, (:d, :K, :L, ..) --> (:d, (:K, :L), ..))
+    h = rearrange(x, einops"d k l ... -> d (k l) ...")
     r = size(x, 2)
     isnothing(pair_feats) || (pair_feats = repeat(pair_feats, einops"h ql kl ... -> h (r1 ql) (r2 kl) ...", r1=r, r2=r))
     return reshape(dart.transformer(h; pair_feats, kws...), size(x))

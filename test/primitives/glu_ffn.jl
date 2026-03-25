@@ -24,9 +24,10 @@ using NNlib: swish, relu
         @test y ≈ ref
     end
 
-    @testset "top-level dispatch" begin
+    @testset "BackendMap dispatch" begin
+        mb = Onion.BackendMap(_ -> DefaultBackend())
         y_explicit = Onion.glu_ffn(DefaultBackend(), x, W_gate, W_up, W_down)
-        y_implicit = Onion.glu_ffn(x, W_gate, W_up, W_down)
-        @test y_explicit ≈ y_implicit
+        y_multi = Onion.glu_ffn(mb, x, W_gate, W_up, W_down)
+        @test y_explicit ≈ y_multi
     end
 end

@@ -36,9 +36,10 @@
         @test size(y) == (head_dim, seq_len, n_heads, batch)
     end
 
-    @testset "top-level dispatch" begin
+    @testset "BackendMap dispatch" begin
+        mb = Onion.BackendMap(_ -> DefaultBackend())
         y_explicit = Onion.attention(DefaultBackend(), q, k, v)
-        y_implicit = Onion.attention(q, k, v)
-        @test y_explicit ≈ y_implicit
+        y_multi = Onion.attention(mb, q, k, v)
+        @test y_explicit ≈ y_multi
     end
 end

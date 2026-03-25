@@ -1,6 +1,6 @@
 # ──── ESMFoldIPA (Invariant Point Attention) ────
 
-using NNlib: batched_mul, softplus
+using NNlib: softplus
 
 """
     ESMFoldIPA(c_s, c_z, c_hidden, no_heads, no_qk_points, no_v_points; inf=1e5, eps=1e-8)
@@ -48,7 +48,7 @@ function (m::ESMFoldIPA)(s, z, r, mask)
     # Scalar attention: Q·Kᵀ via batched_mul
     q3 = rearrange(q, einops"C H L B -> L C (B H)")
     k3 = rearrange(k, einops"C H L B -> C L (B H)")
-    a = rearrange(batched_mul(q3, k3), einops"Q K (B H) -> B H Q K"; B)
+    a = rearrange(batched_matmul(q3, k3), einops"Q K (B H) -> B H Q K"; B)
     a = a .* sqrt(1f0 / (3f0 * m.c_hidden))
 
     # Pair bias
@@ -83,11 +83,11 @@ function (m::ESMFoldIPA)(s, z, r, mask)
     # Scalar value aggregation
     a3 = rearrange(a, einops"B H Q K -> Q K (B H)")
     v3 = rearrange(v, einops"C H L B -> L C (B H)")
-    o = rearrange(batched_mul(a3, v3), einops"L C (B H) -> B L (C H)"; B)
+    o = rearrange(batched_matmul(a3, v3), einops"L C (B H) -> B L (C H)"; B)
 
     # Point value aggregation (combined xyz)
     vp = rearrange(v_pts, einops"B L H P xyz -> L (P xyz) (B H)")
-    o_pt = rearrange(batched_mul(a3, vp),
+    o_pt = rearrange(batched_matmul(a3, vp),
         einops"L (P xyz) (B H) -> B L H P xyz"; P=m.no_v_points, xyz=3, B)
 
     # Apply inverse rigid transform
@@ -168,7 +168,7 @@ function (m::MultimerInvariantPointAttention)(s::AbstractArray, z::AbstractArray
     # Scalar attention: Q·Kᵀ via batched_mul
     q3 = rearrange(q, einops"C H L B -> L C (B H)")
     k3 = rearrange(k, einops"C H L B -> C L (B H)")
-    a = rearrange(batched_mul(q3, k3), einops"Q K (B H) -> B H Q K"; B)
+    a = rearrange(batched_matmul(q3, k3), einops"Q K (B H) -> B H Q K"; B)
     a = a .* sqrt(1f0 / max(Float32(m.c_hidden), 1f0))
 
     # Pair bias
@@ -200,11 +200,11 @@ function (m::MultimerInvariantPointAttention)(s::AbstractArray, z::AbstractArray
     # Scalar value aggregation
     a3 = rearrange(a, einops"B H Q K -> Q K (B H)")
     v3 = rearrange(v, einops"C H L B -> L C (B H)")
-    o = rearrange(batched_mul(a3, v3), einops"L C (B H) -> B L (C H)"; B)
+    o = rearrange(batched_matmul(a3, v3), einops"L C (B H) -> B L (C H)"; B)
 
     # Point value aggregation (combined xyz)
     vp = rearrange(v_pts, einops"B L H P xyz -> L (P xyz) (B H)")
-    o_pt = rearrange(batched_mul(a3, vp),
+    o_pt = rearrange(batched_matmul(a3, vp),
         einops"L (P xyz) (B H) -> B L H P xyz"; P=m.no_v_points, xyz=3, B)
 
     # Apply inverse rigid transform

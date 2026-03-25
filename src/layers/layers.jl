@@ -7,7 +7,7 @@ include("embedding.jl")
 export Embedding
 
 include("norm.jl")
-export LayerNorm, LayerNormFirst, BGLayerNorm
+export LayerNorm
 export RMSNorm, AdaLN, LpNorm, L2Norm, DyT, Derf
 
 include("composability.jl")
@@ -29,12 +29,5 @@ export Attention, KVCache, kv_cache, extend, pos, pos!, DART
 include("blocks.jl")
 export TransformerBlock, AdaTransformerBlock, STRINGBlock
 
-include("pairwise/pairwise.jl")
-
-include("structural/structural.jl")
-
-include("ipa.jl")
-export Framemover, IPAblock, CrossFrameIPA, pair_encode
-
 include("deltanet.jl")
-export DeltaNet, DeltaNetCache, deltanet_cache
+export DeltaNet, deltanet_cache

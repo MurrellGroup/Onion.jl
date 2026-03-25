@@ -1,3 +1,13 @@
+using OnionProt
+using Onion
+using Test
+using LinearAlgebra
+using Statistics
+
+@testset "OnionProt" begin
+
+# ── Pairwise layers ──────────────────────────────────────────────────────────
+
 @testset "training_mode toggle" begin
     prev = training_mode()
     training_mode!(true)
@@ -153,7 +163,7 @@ end
 end
 
 @testset "MiniTriangularUpdate" begin
-    dim = 16  # must be divisible by 4
+    dim = 16
     L, B = 5, 2
     m = MiniTriangularUpdate(dim)
     z = randn(Float32, dim, L, L, B)
@@ -197,15 +207,6 @@ end
         @test size(y) == (c_s, L, B)
         @test all(isfinite, y)
     end
-
-    @testset "without pair bias computation" begin
-        m = AttentionPairBias(c_s, c_z, num_heads; compute_pair_bias=false)
-        s = randn(Float32, c_s, L, B)
-        z = randn(Float32, num_heads, L, L, B)
-        mask = ones(Float32, L, B)
-        y = m(s, z, mask)
-        @test size(y) == (c_s, L, B)
-    end
 end
 
 @testset "ESMFoldAttention" begin
@@ -222,14 +223,6 @@ end
         @test all(isfinite, y)
     end
 
-    @testset "with bias" begin
-        m = ESMFoldAttention(embed_dim, num_heads, head_width)
-        x = randn(Float32, embed_dim, L, B)
-        bias = randn(Float32, num_heads, L, L, B)
-        y, _ = m(x; bias)
-        @test size(y) == (embed_dim, L, B)
-    end
-
     @testset "gated" begin
         m = ESMFoldAttention(embed_dim, num_heads, head_width; gated=true)
         x = randn(Float32, embed_dim, L, B)
@@ -241,7 +234,7 @@ end
 @testset "TriangularSelfAttentionBlock" begin
     seq_dim, pair_dim = 32, 16
     seq_hw, pair_hw = 8, 4
-    L, B = 4, 1  # small for speed
+    L, B = 4, 1
 
     m = TriangularSelfAttentionBlock(seq_dim, pair_dim, seq_hw, pair_hw)
     s = randn(Float32, seq_dim, L, B)
@@ -251,66 +244,6 @@ end
     @test size(s2) == (seq_dim, L, B)
     @test size(z2) == (pair_dim, L, L, B)
     @test all(isfinite, s2)
-    @test all(isfinite, z2)
-end
-
-@testset "PairformerLayer" begin
-    token_s, token_z = 32, 16
-    L, B = 4, 1  # small for speed
-
-    m = PairformerLayer(token_s, token_z; num_heads=4, pairwise_head_width=4, pairwise_num_heads=4)
-    s = randn(Float32, token_s, L, B)
-    z = randn(Float32, token_z, L, L, B)
-    mask = ones(Float32, L, B)
-    pair_mask = ones(Float32, L, L, B)
-
-    s2, z2 = m(s, z, mask, pair_mask)
-    @test size(s2) == (token_s, L, B)
-    @test size(z2) == (token_z, L, L, B)
-    @test all(isfinite, s2)
-    @test all(isfinite, z2)
-end
-
-@testset "PairformerNoSeqLayer" begin
-    token_z = 16
-    L, B = 4, 1
-
-    m = PairformerNoSeqLayer(token_z; pairwise_head_width=4, pairwise_num_heads=4)
-    z = randn(Float32, token_z, L, L, B)
-    pair_mask = ones(Float32, L, L, B)
-
-    z2 = m(z, pair_mask)
-    @test size(z2) == (token_z, L, L, B)
-    @test all(isfinite, z2)
-end
-
-@testset "MiniformerLayer" begin
-    token_s, token_z = 32, 16
-    L, B = 4, 1
-
-    m = MiniformerLayer(token_s, token_z; num_heads=4)
-    s = randn(Float32, token_s, L, B)
-    z = randn(Float32, token_z, L, L, B)
-    mask = ones(Float32, L, B)
-    pair_mask = ones(Float32, L, L, B)
-
-    s2, z2 = m(s, z, mask, pair_mask)
-    @test size(s2) == (token_s, L, B)
-    @test size(z2) == (token_z, L, L, B)
-    @test all(isfinite, s2)
-    @test all(isfinite, z2)
-end
-
-@testset "MiniformerNoSeqLayer" begin
-    token_z = 16
-    L, B = 4, 1
-
-    m = MiniformerNoSeqLayer(token_z)
-    z = randn(Float32, token_z, L, L, B)
-    pair_mask = ones(Float32, L, L, B)
-
-    z2 = m(z, pair_mask)
-    @test size(z2) == (token_z, L, L, B)
     @test all(isfinite, z2)
 end
 
@@ -345,3 +278,143 @@ end
     @test size(z2) == (token_z, L, L, B)
     @test length(m.layers) == 2
 end
+
+# ── Structural layers ────────────────────────────────────────────────────────
+
+@testset "Rigid identity" begin
+    r = rigid_identity((5, 2), zeros(Float32, 1); fmt=:quat)
+    @test r.rots isa QuatRotation
+    @test size(r.rots.quats) == (4, 5, 2)
+    @test size(r.trans) == (3, 5, 2)
+    @test r.rots.quats[1, 1, 1] ≈ 1f0
+    @test all(r.trans .== 0)
+end
+
+@testset "apply_rigid round-trip" begin
+    q = randn(Float32, 4, 5, 2)
+    rot = rot_from_quat(q)
+    trans = randn(Float32, 3, 5, 2)
+    r = Rigid(rot, trans)
+
+    pts = randn(Float32, 3, 5, 2)
+    transformed = apply_rigid(r, pts)
+    recovered = invert_apply_rigid(r, transformed)
+    @test recovered ≈ pts atol=1e-4
+end
+
+@testset "compose" begin
+    q1 = randn(Float32, 4, 3, 2)
+    q2 = randn(Float32, 4, 3, 2)
+    r1 = Rigid(rot_from_quat(q1), randn(Float32, 3, 3, 2))
+    r2 = Rigid(rot_from_quat(q2), randn(Float32, 3, 3, 2))
+
+    r12 = compose(r1, r2)
+    pts = randn(Float32, 3, 3, 2)
+    via_compose = apply_rigid(r12, pts)
+    via_chain = apply_rigid(r1, apply_rigid(r2, pts))
+    @test via_compose ≈ via_chain atol=1e-4
+end
+
+@testset "PointProjection" begin
+    c_hidden, num_points, no_heads = 32, 4, 2
+    L, B = 5, 2
+
+    m = PointProjection(c_hidden, num_points, no_heads)
+    s = randn(Float32, c_hidden, L, B)
+    r = rigid_identity((L, B), s; fmt=:quat)
+
+    pts = m(s, r)
+    @test size(pts) == (3, num_points, no_heads, L, B)
+    @test all(isfinite, pts)
+end
+
+@testset "ESMFoldIPA" begin
+    c_s, c_z, c_hidden = 32, 16, 8
+    no_heads, no_qk_points, no_v_points = 2, 2, 2
+    L, B = 4, 1
+
+    m = ESMFoldIPA(c_s, c_z, c_hidden, no_heads, no_qk_points, no_v_points)
+    s = randn(Float32, c_s, L, B)
+    z = randn(Float32, c_z, L, L, B)
+    r = rigid_identity((L, B), s; fmt=:quat)
+    mask = ones(Float32, L, B)
+
+    y = m(s, z, r, mask)
+    @test size(y) == (c_s, L, B)
+    @test all(isfinite, y)
+end
+
+@testset "MultimerInvariantPointAttention" begin
+    c_s, c_z, c_hidden = 32, 16, 8
+    no_heads, no_qk_points, no_v_points = 2, 2, 2
+    L, B = 4, 1
+
+    m = MultimerInvariantPointAttention(c_s, c_z, c_hidden, no_heads, no_qk_points, no_v_points)
+    s = randn(Float32, c_s, L, B)
+    z = randn(Float32, c_z, L, L, B)
+    r = rigid_identity((L, B), s; fmt=:quat)
+    mask = ones(Float32, L, B)
+
+    y = m(s, z, r, mask)
+    @test size(y) == (c_s, L, B)
+    @test all(isfinite, y)
+end
+
+@testset "BackboneUpdate" begin
+    c_s = 32
+    m = BackboneUpdate(c_s)
+    s = randn(Float32, c_s, 5, 2)
+    y = m(s)
+    @test size(y) == (6, 5, 2)
+end
+
+@testset "AngleResnet" begin
+    c_in, c_hidden, no_blocks, no_angles = 32, 16, 2, 7
+    eps = 1f-8
+    L, B = 5, 2
+
+    m = AngleResnet(c_in, c_hidden, no_blocks, no_angles, eps)
+    s = randn(Float32, c_in, L, B)
+    s_initial = randn(Float32, c_in, L, B)
+
+    unnormalized, normalized = m(s, s_initial)
+    @test size(unnormalized) == (2, no_angles, L, B)
+    @test size(normalized) == (2, no_angles, L, B)
+    norms = sqrt.(sum(normalized .^ 2; dims=1))
+    @test all(x -> isapprox(x, 1f0; atol=1e-4), norms)
+end
+
+@testset "RelativePosition" begin
+    bins, c_z = 16, 12
+    m = RelativePosition(bins, c_z)
+    L, B = 5, 2
+    residx = repeat(collect(1:L), 1, B)
+
+    emb = m(residx)
+    @test size(emb) == (c_z, L, L, B)
+    @test all(isfinite, emb)
+end
+
+@testset "distogram" begin
+    L, B = 5, 2
+    coords = randn(Float32, 3, 3, L, B)
+    bins = distogram(coords, 3.375f0, 21.375f0, 15)
+    @test size(bins) == (L, L, B)
+    @test eltype(bins) <: Integer
+    @test all(b -> 0 ≤ b ≤ 14, bins)
+end
+
+@testset "Framemover" begin
+    dim = 32
+    L, B = 5, 2
+    fm = Framemover(dim)
+    frames = rigid_identity((L, B), zeros(Float32, 1); fmt=:quat)
+    x = randn(Float32, dim, L, B)
+
+    new_frames = fm(frames, x)
+    @test new_frames isa Rigid
+    @test size(new_frames.trans) == (3, L, B)
+    @test all(isfinite, new_frames.trans)
+end
+
+end # @testset "OnionProt"

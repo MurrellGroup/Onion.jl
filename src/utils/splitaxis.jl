@@ -18,10 +18,10 @@ function _split(x, sizes::NTuple{N,Int}, ::Val{dims}) where {N,dims}
     end
 end
 
-Base.@constprop :aggressive function splitaxis(x, sections::Int; dims::Int=1)
+@constprop function splitaxis(x, sections::Int; dims::Int=1)
     return _split(x, Val(sections), Val(dims))
 end
 
-Base.@constprop :aggressive function splitaxis(x, inds::NTuple{N,Int}; dims::Int=1) where N
+@constprop function splitaxis(x, inds::NTuple{N,Int}; dims::Int=1) where N
     return _split(x, inds, Val(dims))
 end

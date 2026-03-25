@@ -16,21 +16,21 @@ function Linear(;
     bias::Bool=true, init=with_default_rng(WI.glorot_uniform)
 )
     W = init(out_size, in_size)
-    b = bias ? zeros_like(W, out_size) : false
+    b = bias ? zeros_like(W, out_size) : nothing
     return Linear(W, b)
 end
 
 Linear((d1, d2)::Pair{Int,Int}; kws...) = Linear(; in_size=d1, out_size=d2, kws...)
 
-function forward(l::Linear, r::Rules, x)
+function forward(l::Linear, x)
     x′ = reshape(x, Keep(), :)
-    y′ = linear(r, x′, l.weight, l.bias)
+    y′ = linear(backend(), x′, l.weight, l.bias)
     return reshape(y′, Keep(), Split(.., Base.tail(size(x))))
 end
 
 function Base.show(io::IO, (; weight, bias)::Linear)
     print(io, "Linear($(size(weight, 2)) => $(size(weight, 1))")
-    bias isa Union{Nothing,Bool} && print(io, ", bias=false")
+    isnothing(bias) && print(io, ", bias=false")
     print(io, ")")
 end
 
@@ -62,14 +62,14 @@ function BlockLinear(
     d2 % k == 0 || throw(ArgumentError("d2 must be divisible by k"))
     s1, s2 = d1 ÷ k, d2 ÷ k
     W = init(s2, s1, k)
-    b = bias ? zeros_like(W, d2) : false
+    b = bias ? zeros_like(W, d2) : nothing
     return BlockLinear(W, b)
 end
 
 # σ.(W ⨝ x .⊞ b)
 function ((; weight, bias)::BlockLinear)(x)
     y = weight ⨝ x
-    NNlib.bias_act!(identity, y, @something bias false)
+    NNlib.bias_act!(identity, y, bias)
     return y
 end
 

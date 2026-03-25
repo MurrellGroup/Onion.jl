@@ -19,9 +19,10 @@
         @test all(y .<= 1f0)
     end
 
-    @testset "top-level dispatch" begin
+    @testset "BackendMap dispatch" begin
+        mb = Onion.BackendMap(_ -> DefaultBackend())
         y_explicit = Onion.softmax(DefaultBackend(), x)
-        y_implicit = Onion.softmax(x)
-        @test y_explicit ≈ y_implicit
+        y_multi = Onion.softmax(mb, x)
+        @test y_explicit ≈ y_multi
     end
 end

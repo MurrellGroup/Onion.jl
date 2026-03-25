@@ -36,7 +36,7 @@ function (m::ESMFoldAttention)(x; mask=nothing, bias=nothing)
         pair = pair === nothing ? repeat(mask_bias, 1, L, H, 1) : pair .+ mask_bias
     end
 
-    out = attention(q, k, v; pair)
+    out = attention(backend(), q, k, v; pair)
     o = rearrange(out, einops"D L H B -> (D H) L B")
 
     if m.gated

@@ -43,7 +43,7 @@ function (l::PairWeightedAveraging)(m, z, mask)
     # Batched aggregation
     w_bat = rearrange(w, einops"H Nq Nk B -> Nq Nk (H B)")
     v_bat = rearrange(v, einops"H S N Ch B -> N (Ch S) (H B)")
-    o_flat = NNlib.batched_mul(w_bat, v_bat)  # (N, Ch*S, H*B)
+    o_flat = batched_matmul(w_bat, v_bat)  # (N, Ch*S, H*B)
 
     o = rearrange(o_flat, einops"N (Ch S) (H B) -> H S N Ch B"; Ch=c_h, S=s, H=h)
     o = o .* g

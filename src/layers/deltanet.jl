@@ -50,10 +50,11 @@ output = layer(x; cache)
     norm        = RMSNorm(head_dim)
 end
 
-function decode(layer::DeltaNet, r::Rules,
+function decode(layer::DeltaNet,
     x::AbstractArray{T};
     cache
 ) where T
+    b = backend()
     (; head_dim, q_dim, k_dim, v_dim) = layer
 
     qk_proj = layer.qk_proj(x)       # (2*k_dim, B)
@@ -61,7 +62,7 @@ function decode(layer::DeltaNet, r::Rules,
     alpha = layer.alpha_proj(x)     # (n_v_heads, B)
     beta_raw = layer.beta_proj(x)   # (n_v_heads, B)
 
-    conv_out, _ = causal_conv1d(r, [qk_proj; v_proj], cache.conv_state, layer.conv_weight, layer.conv_bias; silu=true)
+    conv_out, _ = causal_conv1d(b, [qk_proj; v_proj], cache.conv_state, layer.conv_weight, layer.conv_bias; silu=true)
 
     q, k, v = splitaxis(conv_out, (q_dim, k_dim, v_dim))
 
@@ -76,7 +77,7 @@ function decode(layer::DeltaNet, r::Rules,
 
     β = sigmoid.(beta_raw)  # (n_v_heads, B)
 
-    output, _ = deltanet_recurrent_decode(r, qʰ, kʰ, vʰ, β, gate, cache.recurrent_state)
+    output, _ = deltanet_recurrent_decode(b, qʰ, kʰ, vʰ, β, gate, cache.recurrent_state)
 
     # Output: RMSNorm per head, then multiply by SiLU(gate_z)
     # Note: In the full model, there's a separate gate value from the projection.
@@ -89,10 +90,11 @@ function decode(layer::DeltaNet, r::Rules,
 end
 
 
-function forward(layer::DeltaNet, r::Rules,
+function forward(layer::DeltaNet,
     x::AbstractArray{T};
     cache = nothing,
 ) where T
+    b = backend(r)
     (; head_dim, q_dim, k_dim, v_dim, n_v_heads) = layer
 
     qk_proj = layer.qk_proj(x)       # (2*k_dim, L, ...)
@@ -102,7 +104,7 @@ function forward(layer::DeltaNet, r::Rules,
 
     # Causal conv1d over the full sequence
     qkv = cat(qk_proj, v_proj; dims=1)
-    conv_out = causal_conv1d_sequence(r, qkv, layer.conv_weight, layer.conv_bias; silu=true)
+    conv_out = causal_conv1d_sequence(b, qkv, layer.conv_weight, layer.conv_bias; silu=true)
 
     q, k, v = splitaxis(conv_out, (q_dim, k_dim, v_dim))
 
@@ -121,7 +123,7 @@ function forward(layer::DeltaNet, r::Rules,
 
     # Full-sequence recurrence
     initial_state = isnothing(cache) ? nothing : cache.recurrent_state
-    output, final_state = deltanet_sequence(r, qʰ, kʰ, vʰ, β, gate, initial_state)
+    output, final_state = deltanet_sequence(b, qʰ, kʰ, vʰ, β, gate, initial_state)
 
     # Write final state back to cache if provided
     if !isnothing(cache)
@@ -141,7 +143,6 @@ function forward(layer::DeltaNet, r::Rules,
 
     return layer.o_proj(output)
 end
-
 
 function deltanet_cache(layer::DeltaNet, batch::Int=1)
     (; head_dim, n_k_heads, n_v_heads, kernel_size) = layer

@@ -39,11 +39,12 @@
         @test y ≈ x4
     end
 
-    @testset "top-level dispatch" begin
+    @testset "BackendMap dispatch" begin
         cos_vals = randn(Float32, dim ÷ 2, seq_len)
         sin_vals = randn(Float32, dim ÷ 2, seq_len)
+        mb = Onion.BackendMap(_ -> DefaultBackend())
         y_explicit = Onion.rotary_pos_emb(DefaultBackend(), x, cos_vals, sin_vals)
-        y_implicit = Onion.rotary_pos_emb(x, cos_vals, sin_vals)
-        @test y_explicit ≈ y_implicit
+        y_multi = Onion.rotary_pos_emb(mb, x, cos_vals, sin_vals)
+        @test y_explicit ≈ y_multi
     end
 end

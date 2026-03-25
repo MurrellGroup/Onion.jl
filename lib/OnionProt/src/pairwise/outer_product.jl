@@ -31,12 +31,12 @@ function (l::OuterProductMean)(m, mask)
 
     # Mask sum for normalization: (N, N, B)
     mask_t = rearrange(mask, einops"S N B -> N S B")
-    mask_sum = max.(NNlib.batched_mul(mask_t, mask), one(T))
+    mask_sum = max.(batched_matmul(mask_t, mask), one(T))
 
     # Outer product via batched_mul contracting over S
     a_flat = rearrange(a, einops"Ch S N B -> (Ch N) S B")
     b_flat = rearrange(b, einops"Ch S N B -> S (Ch N) B")
-    z_flat = NNlib.batched_mul(a_flat, b_flat)  # (Ch*N, Ch*N, B)
+    z_flat = batched_matmul(a_flat, b_flat)  # (Ch*N, Ch*N, B)
 
     z = rearrange(reshape(z_flat, c_h, n, c_h, n, bsz), einops"Ch1 N1 Ch2 N2 B -> (Ch2 Ch1) N1 N2 B")
     z = z ./ rearrange(mask_sum, einops"N1 N2 B -> 1 N1 N2 B")

@@ -52,11 +52,12 @@
         @test state[:, :, h, b] ≈ S_updated
     end
 
-    @testset "top-level dispatch" begin
+    @testset "BackendMap dispatch" begin
         s1 = copy(state_copy)
         s2 = copy(state_copy)
+        mb = Onion.BackendMap(_ -> DefaultBackend())
         o1 = Onion.deltanet_recurrent_decode(DefaultBackend(), q, k, v, beta, gate, s1)[1]
-        o2 = Onion.deltanet_recurrent_decode(q, k, v, beta, gate, s2)[1]
+        o2 = Onion.deltanet_recurrent_decode(mb, q, k, v, beta, gate, s2)[1]
         @test o1 ≈ o2
     end
 end

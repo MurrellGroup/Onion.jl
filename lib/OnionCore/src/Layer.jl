@@ -24,25 +24,17 @@ LayerStyle(::Type{<:Layer}) = EagerStyle()
 struct EagerStyle <: LayerStyle end
 
 # Entry points
-function (layer::Layer)(r::Rules, args...; backend=nothing, kws...)
-    r = isnothing(backend) ? r : merge(r, Rules(; backend))
-    apply(EagerStyle(), layer, r, args...; kws...)
-end
-
 function (layer::Layer)(args...; kws...)
-    layer(Rules(), args...; kws...)
+    apply(EagerStyle(), layer, args...; kws...)
 end
 
 # Style dispatch
-apply(style::LayerStyle, layer::Layer, r::Rules, args...; kws...) =
-    apply_with(style, LayerStyle(layer), layer, r, args...; kws...)
+apply(style::LayerStyle, layer::Layer, args...; kws...) =
+    apply_with(style, LayerStyle(layer), layer, args...; kws...)
 
 # Same style → call native interface
-apply_with(::EagerStyle, ::EagerStyle, layer::Layer, r::Rules, args...; kws...) =
-    forward(layer, r, args...; kws...)
-
-# Default: strip rules for layers that don't accept them
-forward(layer::Layer, ::Rules, args...; kws...) = forward(layer, args...; kws...)
+apply_with(::EagerStyle, ::EagerStyle, layer::Layer, args...; kws...) =
+    forward(layer, args...; kws...)
 
 # Missing implementation errors
 forward(::L, args...; kws...) where L<:Layer =

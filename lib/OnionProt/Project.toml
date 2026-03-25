@@ -1,0 +1,12 @@
+name = "OnionProt"
+uuid = "f683f943-f388-461b-ab67-9bc51916535d"
+version = "0.1.0"
+authors = ["AntonOresten <antonoresten@proton.me>"]
+
+[deps]
+ConcreteStructs = "2569d6c7-a4a2-43d3-a901-331e8e4be471"
+Einops = "e3ce28c8-8bfb-4704-8add-e3e7f14b55c9"
+NNlib = "872c559c-99b0-510c-b3b7-b6c96a88d5cd"
+Onion = "fdebf6c2-71da-43a1-b539-c3bc3e09c5c6"
+OnionCore = "42a94c36-64b5-4594-9f04-7bc0bc5c1701"
+OnionStyle = "6e247420-e5a1-45e2-a08a-6a2faa9330e2"

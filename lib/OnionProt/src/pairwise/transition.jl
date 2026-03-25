@@ -19,6 +19,7 @@ end
 
 function (l::Transition)(x)
     x = l.norm(x)
-    x1 = l.fc1(x)
-    return l.fc3(swish.(x1) .* l.fc2(x))
+    x′ = reshape(x, Keep(), :)
+    y′ = glu_ffn(x′, l.fc1.weight, l.fc2.weight, l.fc3.weight, swish)
+    return reshape(y′, Keep(), Split(.., Base.tail(size(x))))
 end

@@ -1,6 +1,4 @@
 abstract type Norm <: Layer end
-abstract type StatisticalNorm <: Norm end
-abstract type PointWiseNorm <: Norm end
 
 
 # ──── LayerNorm ────
@@ -16,9 +14,9 @@ x = randn(Float32, 64, 10, 1)
 y = ln(x)
 ```
 """
-@concrete struct LayerNorm <: StatisticalNorm
-    w
-    b
+@concrete struct LayerNorm <: Norm
+    weight
+    bias
     eps
 end
 
@@ -26,12 +24,11 @@ LayerNorm(dim::Int; eps::T=1f-6) where T = LayerNorm(ones(T, dim), zeros(T, dim)
 
 function (norm::LayerNorm)(x)
     x′ = reshape(x, size(x, 1), :)
-    y′ = layer_norm(x′, norm.w, norm.b; eps=norm.eps)
+    y′ = layer_norm(backend(), x′, norm.weight, norm.bias; eps=norm.eps)
     return reshape(y′, size(x))
 end
 
-const LayerNormFirst = LayerNorm
-const BGLayerNorm = LayerNorm
+fuse(l::LayerNorm, x) = lazy_layer_norm(x, l.weight, l.bias; l.eps)
 
 
 # ──── RMSNorm ────
@@ -41,7 +38,7 @@ const BGLayerNorm = LayerNorm
 
 Root Mean Square Layer Normalization. As used in Llama3.
 """
-@concrete struct RMSNorm <: StatisticalNorm
+@concrete struct RMSNorm <: Norm
     weight
     eps
     offset
@@ -55,13 +52,11 @@ end
 
 function (norm::RMSNorm)(x)
     x′ = reshape(x, size(x, 1), :)
-    y′ = rms_norm(x′, norm.weight; norm.eps, norm.offset)
+    y′ = rms_norm(backend(), x′, norm.weight; norm.eps, norm.offset)
     return reshape(y′, size(x))
 end
 
-function fuse((; weight, offset, eps)::RMSNorm, x)
-    @lazy (weight + offset) * x / √($mean(abs2, x; dims=1) + eps)
-end
+fuse(l::RMSNorm, x) = lazy_rms_norm(x, l.weight; l.eps, l.offset)
 
 function Base.show(io::IO, norm::RMSNorm)
     print(io, "RMSNorm(", length(norm.weight),
@@ -87,7 +82,7 @@ cond = randn(Float32, 3,1)
 h = aln(h, cond)
 ```
 """
-@concrete struct AdaLN <: StatisticalNorm
+@concrete struct AdaLN <: Norm
     norm
     shift
     scale
@@ -100,6 +95,8 @@ AdaLN(dim::Int, cond_dim::Int) = AdaLN(LayerNorm(dim), Linear(cond_dim => dim), 
 
 # ──── LpNorm ────
 
+ofeltype(v::Number, ::AbstractArray{T}) where T = convert(T, v)
+
 """
     LpNorm(p; dims=1, eps=1f-6)
     LpNorm{p}(; dims=1, eps=1f-6)
@@ -108,7 +105,7 @@ A p-norm layer. This layer has no trainable parameters.
 
 See also the [`L2Norm`](@ref) alias for `p=2`.
 """
-@concrete struct LpNorm{p} <: StatisticalNorm
+@concrete struct LpNorm{p} <: Norm
     dims
     eps
 end
@@ -119,11 +116,12 @@ LpNorm(p::Int; kws...) = LpNorm{p}(; kws...)
 abs3(x) = abs2(x) * abs(x)
 abs4(x) = abs2(abs2(x))
 
-((; dims, eps)::LpNorm{1})(x) = x ./ (sum(abs, x; dims) .+ ofeltype(eps, x))
-((; dims, eps)::LpNorm{2})(x) = x ./ (.√sum(abs2, x; dims) .+ ofeltype(eps, x))
-((; dims, eps)::LpNorm{3})(x) = x ./ (.∛sum(abs3, x; dims) .+ ofeltype(eps, x))
-((; dims, eps)::LpNorm{4})(x) = x ./ (.∜sum(abs4, x; dims) .+ ofeltype(eps, x))
-((; dims, eps)::LpNorm{p})(x) where p = x ./ (sum(a -> abs(a^p), x; dims) .^ (1//p) .+ ofeltype(eps, x))
+LayerStyle(::Type{<:LpNorm}) = FusedStyle()
+fuse(l::LpNorm{1}, x) = x ./ (sum(abs, x; l.dims) .+ ofeltype(l.eps, x))
+fuse(l::LpNorm{2}, x) = x ./ (.√sum(abs2, x; l.dims) .+ ofeltype(l.eps, x))
+fuse(l::LpNorm{3}, x) = x ./ (.∛sum(abs3, x; l.dims) .+ ofeltype(l.eps, x))
+fuse(l::LpNorm{4}, x) = x ./ (.∜sum(abs4, x; l.dims) .+ ofeltype(l.eps, x))
+fuse(l::LpNorm{p}, x) where p = x ./ (sum(a -> abs(a^p), x; l.dims) .^ (1//p) .+ ofeltype(l.eps, x))
 
 """
     L2Norm(; dims=1, eps=1f-6)
@@ -142,7 +140,7 @@ Dynamic Tanh (DyT) layer for point-wise normalization of inputs.
 
 See [Transformers without Normalization](https://arxiv.org/abs/2503.10622) for more details.
 """
-struct DyT{T<:AbstractFloat,V<:AbstractVector{T}} <: PointWiseNorm
+struct DyT{T<:AbstractFloat,V<:AbstractVector{T}} <: Norm
     alpha::V   # α
     weight::V  # γ
     bias::V    # β
@@ -177,7 +175,7 @@ Dynamic erf (Derf) layer for point-wise normalization of inputs.
 
 See [Stronger Normalization-Free Transformers](https://arxiv.org/abs/2512.10938) for more details.
 """
-@concrete struct Derf <: PointWiseNorm
+@concrete struct Derf <: Norm
     α; s; γ; β
 end
 

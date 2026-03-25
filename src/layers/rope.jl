@@ -64,7 +64,7 @@ end
 # Note about Huggingface weights and rotary embeddings:
 # https://discuss.huggingface.co/t/is-llama-rotary-embedding-implementation-correct/44509
 # Use this one if you're using the Hugging Face weights.
-(rope::RoPE)(x) = rotary_pos_emb(x, rope.cos, rope.sin)
+(rope::RoPE)(x) = rotary_pos_emb(backend(), x, rope.cos, rope.sin)
 
 
 # ──── MultidimRoPE ────

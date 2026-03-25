@@ -19,23 +19,19 @@
         @test Onion.backend() isa DefaultBackend
     end
 
-    @testset "Rules(backend=...) overrides global" begin
-        Onion.backend!(DefaultBackend())
+    @testset "BackendMap resolves per-primitive" begin
+        mb = Onion.BackendMap(_ -> DefaultBackend())
         x = randn(Float32, 8, 3)
         W = randn(Float32, 12, 8)
         b = randn(Float32, 12)
-
-        # Rules with explicit backend
-        r = Onion.Rules(backend=DefaultBackend())
-        y = Onion.linear(r, x, W, b)
+        y = Onion.linear(mb, x, W, b)
         @test size(y) == (12, 3)
     end
 
-    @testset "function-based backend selector" begin
-        selector = p -> DefaultBackend()
-        r = Onion.Rules(backend=selector)
+    @testset "BackendMap with selective dispatch" begin
+        mb = Onion.BackendMap(p -> DefaultBackend())
         x = randn(Float32, 8, 3)
-        y = Onion.softmax(r, x)
+        y = Onion.softmax(mb, x)
         @test size(y) == (8, 3)
         @test all(isapprox.(sum(y; dims=1), 1f0; atol=1f-6))
     end

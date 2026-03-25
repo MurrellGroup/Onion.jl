@@ -21,6 +21,8 @@ include("softmax.jl")
 
 include("linear.jl")
 
+include("batched_matmul.jl")
+
 include("recurrent/deltanet.jl")
 
 include("recurrent/fused_deltanet_decode.jl")
