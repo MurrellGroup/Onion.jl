@@ -34,7 +34,7 @@ cuTileExt = "cuTile"
 [compat]
 ChainRulesCore = "1.25.2"
 ConcreteStructs = "0.2.3"
-Einops = "0.1.12"
+Einops = "0.1.12, 0.2"
 LinearAlgebra = "1"
 NNlib = "0.9.27"
 NNop = "0.2.0"
