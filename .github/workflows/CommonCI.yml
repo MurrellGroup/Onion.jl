@@ -47,7 +47,7 @@ jobs:
           using Pkg
           Pkg.Registry.add(Pkg.Registry.RegistrySpec(url="https://github.com/JuliaRegistries/General"))
           Pkg.Registry.add(Pkg.Registry.RegistrySpec(url="https://github.com/MurrellGroup/MurrellGroupRegistry"))
-      - uses: julia-actions/julia-downgrade-compat@v2.3
+      - uses: julia-actions/julia-downgrade-compat@v2.5
         if: ${{ inputs.downgrade_testing }}
         with:
           mode: forcedeps
