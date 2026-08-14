@@ -104,7 +104,8 @@ function (rope::MultidimRoPE)(x::AbstractArray, positions::AbstractArray)
     @assert S == S_pos && B == B_pos "Sequence length or batch size mismatch between x and positions"
     num_pairs = D ÷ 2
     freqs = 1.0f0 ./ (rope.theta .^ (like(0:2:D-1, x, Float32)[1:num_pairs] ./ D))
-    pos_indices = mod1.(like(1:num_pairs, x), d_coords)
+    # Zygote traces mod1 as mod, so 1D coords gather at index 0. Axis map is discrete.
+    pos_indices = @ignore_derivatives mod1.(like(1:num_pairs, x), d_coords)
     selected_pos = pos_3d[pos_indices, :, :]
     angles = reshape(freqs, num_pairs, 1, 1) .* selected_pos
     cos_vals = cos.(angles)
